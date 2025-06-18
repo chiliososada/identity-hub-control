@@ -1,6 +1,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { verifyJWT, getClientIP } from '../_shared/jwt-utils.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -8,6 +9,7 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 interface RevokeRequest {
   token?: string
   all_tokens?: boolean
+  reason?: string
 }
 
 Deno.serve(async (req) => {
@@ -37,25 +39,76 @@ Deno.serve(async (req) => {
 
     const currentToken = authHeader.substring(7)
     const body: RevokeRequest = await req.json()
+    const clientIP = getClientIP(req)
+    const userAgent = req.headers.get('user-agent') || 'Unknown'
 
     console.log('Revoking token(s) for user...')
 
-    // 验证当前token
-    const { data: authToken, error: tokenError } = await supabase
-      .from('auth_tokens')
-      .select('user_id, is_revoked')
-      .eq('token_id', currentToken)
-      .single()
+    // 首先尝试作为 JWT 验证当前token
+    let currentUserId = null
+    let currentTokenRecord = null
 
-    if (tokenError || !authToken || authToken.is_revoked) {
+    // 获取所有活跃的 JWT 密钥来验证当前 token
+    const { data: jwtKeys, error: keysError } = await supabase
+      .from('jwt_keys')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+
+    if (!keysError && jwtKeys && jwtKeys.length > 0) {
+      // 尝试用每个密钥验证 JWT
+      for (const key of jwtKeys) {
+        try {
+          const verificationResult = await verifyJWT(currentToken, key.public_key, key.algorithm)
+          if (verificationResult.valid && verificationResult.payload) {
+            // 通过 JWT payload 中的 jti 查找数据库记录
+            const { data: tokenRecord, error: tokenError } = await supabase
+              .from('auth_tokens')
+              .select('user_id, is_revoked')
+              .eq('token_id', verificationResult.payload.jti)
+              .single()
+
+            if (!tokenError && tokenRecord) {
+              currentUserId = tokenRecord.user_id
+              currentTokenRecord = tokenRecord
+              break
+            }
+          }
+        } catch (error) {
+          console.log(`Failed to verify with key ${key.key_id}:`, error.message)
+          continue
+        }
+      }
+    }
+
+    // 如果 JWT 验证失败，尝试直接查找token
+    if (!currentUserId) {
+      const { data: authToken, error: tokenError } = await supabase
+        .from('auth_tokens')
+        .select('user_id, is_revoked')
+        .eq('token_id', currentToken)
+        .single()
+
+      if (tokenError || !authToken || authToken.is_revoked) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or revoked token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      currentUserId = authToken.user_id
+      currentTokenRecord = authToken
+    }
+
+    if (currentTokenRecord?.is_revoked) {
       return new Response(
-        JSON.stringify({ error: 'Invalid or revoked token' }),
+        JSON.stringify({ error: 'Current token is already revoked' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const userId = authToken.user_id
     let revokedCount = 0
+    const revokeReason = body.reason || 'User requested token revocation'
 
     if (body.all_tokens) {
       // 撤销用户的所有token
@@ -64,9 +117,9 @@ Deno.serve(async (req) => {
         .update({
           is_revoked: true,
           revoked_at: new Date().toISOString(),
-          revoked_reason: 'User requested revocation of all tokens'
+          revoked_reason: revokeReason
         })
-        .eq('user_id', userId)
+        .eq('user_id', currentUserId)
         .eq('is_revoked', false)
 
       if (revokeError) {
@@ -78,21 +131,37 @@ Deno.serve(async (req) => {
       }
 
       revokedCount = count || 0
-      console.log(`Revoked all ${revokedCount} tokens for user:`, userId)
+      console.log(`Revoked all ${revokedCount} tokens for user:`, currentUserId)
 
     } else {
       // 撤销指定的token，如果没有指定则撤销当前token
       const tokenToRevoke = body.token || currentToken
+
+      // 如果指定的token是JWT，需要提取jti
+      let actualTokenId = tokenToRevoke
+      if (body.token && jwtKeys && jwtKeys.length > 0) {
+        for (const key of jwtKeys) {
+          try {
+            const verificationResult = await verifyJWT(body.token, key.public_key, key.algorithm)
+            if (verificationResult.valid && verificationResult.payload) {
+              actualTokenId = verificationResult.payload.jti
+              break
+            }
+          } catch (error) {
+            continue
+          }
+        }
+      }
 
       const { error: revokeError } = await supabase
         .from('auth_tokens')
         .update({
           is_revoked: true,
           revoked_at: new Date().toISOString(),
-          revoked_reason: 'User requested token revocation'
+          revoked_reason: revokeReason
         })
-        .eq('token_id', tokenToRevoke)
-        .eq('user_id', userId)
+        .eq('token_id', actualTokenId)
+        .eq('user_id', currentUserId)
         .eq('is_revoked', false)
 
       if (revokeError) {
@@ -104,8 +173,23 @@ Deno.serve(async (req) => {
       }
 
       revokedCount = 1
-      console.log('Revoked token for user:', userId)
+      console.log('Revoked token for user:', currentUserId)
     }
+
+    // 记录撤销操作到审计日志
+    await supabase.from('audit_logs').insert({
+      user_id: currentUserId,
+      action_type: 'token_revocation',
+      resource_type: 'auth_token',
+      ip_address: clientIP,
+      user_agent: userAgent,
+      success: true,
+      details: {
+        revoked_count: revokedCount,
+        revoke_all: body.all_tokens || false,
+        reason: revokeReason
+      }
+    })
 
     return new Response(
       JSON.stringify({
