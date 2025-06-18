@@ -10,6 +10,7 @@ import { Plus, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type TenantMember = Tables<'tenant_members'>;
 
@@ -19,19 +20,24 @@ const TenantMembersManagement = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: members, isLoading } = useQuery({
+  const { data: members, isLoading, error } = useQuery({
     queryKey: ['tenant_members'],
     queryFn: async () => {
+      console.log('Fetching tenant members...');
       const { data, error } = await supabase
         .from('tenant_members')
         .select(`
           *,
-          tenants(name),
-          profiles!tenant_members_user_id_fkey(full_name, email)
+          tenants!tenant_members_tenant_id_fkey(id, name),
+          profiles!tenant_members_user_id_fkey(id, full_name, email)
         `)
         .order('joined_at', { ascending: false });
       
-      if (error) throw error;
+      console.log('Tenant members query result:', { data, error });
+      if (error) {
+        console.error('Error fetching tenant members:', error);
+        throw error;
+      }
       return data;
     },
   });
@@ -39,12 +45,17 @@ const TenantMembersManagement = () => {
   const { data: tenants } = useQuery({
     queryKey: ['tenants_for_members'],
     queryFn: async () => {
+      console.log('Fetching tenants for members...');
       const { data, error } = await supabase
         .from('tenants')
         .select('id, name')
         .eq('is_active', true);
       
-      if (error) throw error;
+      console.log('Tenants query result:', { data, error });
+      if (error) {
+        console.error('Error fetching tenants:', error);
+        throw error;
+      }
       return data;
     },
   });
@@ -52,25 +63,35 @@ const TenantMembersManagement = () => {
   const { data: profiles } = useQuery({
     queryKey: ['profiles_for_members'],
     queryFn: async () => {
+      console.log('Fetching profiles for members...');
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email')
         .eq('is_active', true);
       
-      if (error) throw error;
+      console.log('Profiles query result:', { data, error });
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        throw error;
+      }
       return data;
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async (memberData: TablesInsert<'tenant_members'>) => {
+      console.log('Creating tenant member:', memberData);
       const { data, error } = await supabase
         .from('tenant_members')
         .insert(memberData)
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating tenant member:', error);
+        throw error;
+      }
+      console.log('Created tenant member:', data);
       return data;
     },
     onSuccess: () => {
@@ -79,12 +100,14 @@ const TenantMembersManagement = () => {
       toast({ title: "租户成员添加成功" });
     },
     onError: (error: any) => {
+      console.error('Create mutation error:', error);
       toast({ title: "添加失败", description: error.message, variant: "destructive" });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...memberData }: Partial<TenantMember> & { id: string }) => {
+      console.log('Updating tenant member:', { id, memberData });
       const { data, error } = await supabase
         .from('tenant_members')
         .update(memberData)
@@ -92,7 +115,11 @@ const TenantMembersManagement = () => {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating tenant member:', error);
+        throw error;
+      }
+      console.log('Updated tenant member:', data);
       return data;
     },
     onSuccess: () => {
@@ -101,6 +128,7 @@ const TenantMembersManagement = () => {
       toast({ title: "租户成员更新成功" });
     },
     onError: (error: any) => {
+      console.error('Update mutation error:', error);
       toast({ title: "更新失败", description: error.message, variant: "destructive" });
     },
   });
@@ -127,6 +155,7 @@ const TenantMembersManagement = () => {
         is_active: formData.is_active,
         invited_by: formData.invited_by || null,
       };
+      console.log('Submitting form data:', submitData);
       onSubmit(submitData);
     };
 
@@ -204,15 +233,58 @@ const TenantMembersManagement = () => {
           />
           <Label htmlFor="is_active">激活状态</Label>
         </div>
-        <Button type="submit" className="w-full">
-          {buttonText}
+        <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending}>
+          {createMutation.isPending || updateMutation.isPending ? '处理中...' : buttonText}
         </Button>
       </form>
     );
   };
 
   if (isLoading) {
-    return <div>加载中...</div>;
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold">租户成员列表</h3>
+          <Skeleton className="h-10 w-24" />
+        </div>
+        <div className="grid gap-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold">租户成员列表</h3>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                添加成员
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>添加租户成员</DialogTitle>
+              </DialogHeader>
+              <TenantMemberForm
+                onSubmit={(data) => createMutation.mutate(data)}
+                buttonText="添加成员"
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+        <div className="text-center py-8">
+          <p className="text-red-500 mb-2">加载租户成员数据时出错</p>
+          <p className="text-sm text-muted-foreground">{error.message}</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -238,59 +310,68 @@ const TenantMembersManagement = () => {
         </Dialog>
       </div>
 
-      <div className="grid gap-4">
-        {members?.map((member: any) => (
-          <div key={member.id} className="border rounded-lg p-4 space-y-2">
-            <div className="flex justify-between items-start">
-              <div>
-                <h4 className="font-semibold">
-                  {member.profiles?.full_name || member.profiles?.email || '未知用户'}
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  租户: {member.tenants?.name || '未知租户'}
-                </p>
-                <div className="flex gap-2 mt-2">
-                  <Badge variant={member.is_active ? 'default' : 'secondary'}>
-                    {member.is_active ? '激活' : '未激活'}
-                  </Badge>
-                  <Badge variant="outline">{member.role}</Badge>
+      {!members || members.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground mb-4">暂无租户成员数据</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            请先创建用户和租户，然后添加成员关系
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {members.map((member: any) => (
+            <div key={member.id} className="border rounded-lg p-4 space-y-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-semibold">
+                    {member.profiles?.full_name || member.profiles?.email || '未知用户'}
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    租户: {member.tenants?.name || '未知租户'}
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <Badge variant={member.is_active ? 'default' : 'secondary'}>
+                      {member.is_active ? '激活' : '未激活'}
+                    </Badge>
+                    <Badge variant="outline">{member.role}</Badge>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Dialog open={editingMember?.id === member.id} onOpenChange={(open) => {
+                    if (!open) setEditingMember(null);
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingMember(member)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>编辑租户成员</DialogTitle>
+                      </DialogHeader>
+                      <TenantMemberForm
+                        member={editingMember}
+                        onSubmit={(data) => updateMutation.mutate({ ...data, id: member.id })}
+                        buttonText="更新成员"
+                      />
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Dialog open={editingMember?.id === member.id} onOpenChange={(open) => {
-                  if (!open) setEditingMember(null);
-                }}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingMember(member)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>编辑租户成员</DialogTitle>
-                    </DialogHeader>
-                    <TenantMemberForm
-                      member={editingMember}
-                      onSubmit={(data) => updateMutation.mutate({ ...data, id: member.id })}
-                      buttonText="更新成员"
-                    />
-                  </DialogContent>
-                </Dialog>
+              <div className="text-sm text-muted-foreground">
+                <p>加入时间: {new Date(member.joined_at).toLocaleDateString()}</p>
+                {member.profiles?.email && (
+                  <p>邮箱: {member.profiles.email}</p>
+                )}
               </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              <p>加入时间: {new Date(member.joined_at).toLocaleDateString()}</p>
-              {member.profiles?.email && (
-                <p>邮箱: {member.profiles.email}</p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
