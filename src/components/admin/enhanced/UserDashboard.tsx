@@ -14,8 +14,8 @@ import { Tables } from '@/integrations/supabase/types';
 
 type Profile = Tables<'profiles'>;
 type EnhancedProfile = Profile & {
-  tenant_members?: Array<{
-    tenants: { name: string };
+  tenant_roles?: Array<{
+    tenant_name: string;
     role: string;
     is_active: boolean;
   }>;
@@ -23,24 +23,16 @@ type EnhancedProfile = Profile & {
 
 const UserDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
 
   const { data: usersData, isLoading } = useQuery({
-    queryKey: ['users_dashboard', searchTerm, roleFilter, statusFilter, currentPage],
+    queryKey: ['users_dashboard', searchTerm, statusFilter, currentPage],
     queryFn: async () => {
       let query = supabase
         .from('profiles')
-        .select(`
-          *,
-          tenant_members(
-            role,
-            is_active,
-            tenants(name)
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
       
       if (searchTerm) {
@@ -59,8 +51,37 @@ const UserDashboard = () => {
       const { data, error, count } = await query;
       if (error) throw error;
       
+      if (!data) return { users: [], totalCount: 0 };
+
+      // Get tenant membership data for each user
+      const userIds = data.map(user => user.id);
+      const { data: membershipData } = await supabase
+        .from('tenant_members')
+        .select(`
+          user_id,
+          role,
+          is_active,
+          tenants(name)
+        `)
+        .in('user_id', userIds);
+
+      // Combine user data with tenant roles
+      const enhancedUsers: EnhancedProfile[] = data.map(user => {
+        const userMemberships = membershipData?.filter(m => m.user_id === user.id) || [];
+        const tenant_roles = userMemberships.map(membership => ({
+          tenant_name: (membership.tenants as any)?.name || 'Unknown',
+          role: membership.role,
+          is_active: membership.is_active
+        }));
+
+        return {
+          ...user,
+          tenant_roles
+        };
+      });
+      
       return {
-        users: data as EnhancedProfile[],
+        users: enhancedUsers,
         totalCount: count || 0
       };
     },
@@ -272,14 +293,14 @@ const UserDashboard = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {user.tenant_members?.slice(0, 2).map((member, index) => (
-                          <Badge key={index} variant={getRoleBadgeVariant(member.role)} className="text-xs">
-                            {getRoleDisplayName(member.role)}
+                        {user.tenant_roles?.slice(0, 2).map((membership, index) => (
+                          <Badge key={index} variant={getRoleBadgeVariant(membership.role)} className="text-xs">
+                            {getRoleDisplayName(membership.role)}
                           </Badge>
                         )) || <span className="text-sm text-muted-foreground">无租户</span>}
-                        {user.tenant_members && user.tenant_members.length > 2 && (
+                        {user.tenant_roles && user.tenant_roles.length > 2 && (
                           <Badge variant="outline" className="text-xs">
-                            +{user.tenant_members.length - 2}
+                            +{user.tenant_roles.length - 2}
                           </Badge>
                         )}
                       </div>

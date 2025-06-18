@@ -12,9 +12,14 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Tables } from '@/integrations/supabase/types';
 
-type TenantMember = Tables<'tenant_members'> & {
-  tenants?: { name: string };
-  profiles?: { full_name: string; email: string };
+type TenantMember = Tables<'tenant_members'>;
+type Profile = Tables<'profiles'>;
+type Tenant = Tables<'tenants'>;
+
+type EnhancedTenantMember = TenantMember & {
+  tenant_name?: string;
+  user_email?: string;
+  user_full_name?: string;
 };
 
 const PermissionsManagement = () => {
@@ -27,35 +32,65 @@ const PermissionsManagement = () => {
   const { data: permissions, isLoading } = useQuery({
     queryKey: ['tenant_members_permissions', searchTerm, roleFilter, statusFilter],
     queryFn: async () => {
-      let query = supabase
+      // First get all tenant members
+      let memberQuery = supabase
         .from('tenant_members')
-        .select(`
-          *,
-          tenants(name),
-          profiles!tenant_members_user_id_fkey(full_name, email)
-        `)
+        .select('*')
         .order('joined_at', { ascending: false });
       
-      if (searchTerm) {
-        query = query.or(`tenants.name.ilike.%${searchTerm}%,profiles.full_name.ilike.%${searchTerm}%,profiles.email.ilike.%${searchTerm}%`);
-      }
-      
       if (roleFilter !== 'all') {
-        query = query.eq('role', roleFilter);
+        memberQuery = memberQuery.eq('role', roleFilter);
       }
       
       if (statusFilter !== 'all') {
-        query = query.eq('is_active', statusFilter === 'active');
+        memberQuery = memberQuery.eq('is_active', statusFilter === 'active');
       }
       
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as TenantMember[];
+      const { data: members, error: membersError } = await memberQuery;
+      if (membersError) throw membersError;
+
+      if (!members) return [];
+
+      // Get tenant and profile data separately
+      const tenantIds = [...new Set(members.map(m => m.tenant_id))];
+      const userIds = [...new Set(members.map(m => m.user_id))];
+
+      const [tenantsResult, profilesResult] = await Promise.all([
+        supabase.from('tenants').select('id, name').in('id', tenantIds),
+        supabase.from('profiles').select('id, email, full_name').in('id', userIds)
+      ]);
+
+      const tenants = tenantsResult.data || [];
+      const profiles = profilesResult.data || [];
+
+      // Combine the data
+      const enhancedMembers: EnhancedTenantMember[] = members.map(member => {
+        const tenant = tenants.find(t => t.id === member.tenant_id);
+        const profile = profiles.find(p => p.id === member.user_id);
+        
+        return {
+          ...member,
+          tenant_name: tenant?.name,
+          user_email: profile?.email || '',
+          user_full_name: profile?.full_name || '未设置姓名'
+        };
+      });
+
+      // Apply search filter
+      if (searchTerm) {
+        return enhancedMembers.filter(member =>
+          member.tenant_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          member.user_full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          member.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+
+      return enhancedMembers;
     },
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: string }) => {
+    mutationFn: async ({ id, role }: { id: string; role: Tables<'tenant_members'>['role'] }) => {
       const { data, error } = await supabase
         .from('tenant_members')
         .update({ role })
@@ -226,16 +261,16 @@ const PermissionsManagement = () => {
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {permission.profiles?.full_name || '未设置姓名'}
+                            {permission.user_full_name}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {permission.profiles?.email}
+                            {permission.user_email}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="font-medium">
-                          {permission.tenants?.name || '未知租户'}
+                          {permission.tenant_name || '未知租户'}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -255,7 +290,10 @@ const PermissionsManagement = () => {
                         <div className="flex gap-2">
                           <Select
                             value={permission.role}
-                            onValueChange={(role) => updateRoleMutation.mutate({ id: permission.id, role })}
+                            onValueChange={(role) => updateRoleMutation.mutate({ 
+                              id: permission.id, 
+                              role: role as Tables<'tenant_members'>['role']
+                            })}
                           >
                             <SelectTrigger className="w-32">
                               <SelectValue />
