@@ -22,24 +22,56 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
 
   const createMutation = useMutation({
     mutationFn: async (profileData: Partial<Profile>) => {
+      console.log('Creating user with data:', profileData);
+      
+      // Ensure we have valid data structure for insert
+      const insertData = {
+        email: profileData.email,
+        full_name: profileData.full_name || null,
+        first_name: profileData.first_name || null,
+        last_name: profileData.last_name || null,
+        role: profileData.role || 'member',
+        company: profileData.company || null,
+        job_title: profileData.job_title || null,
+        is_active: profileData.is_active ?? true,
+        is_company_admin: profileData.is_company_admin ?? false,
+      };
+      
       const { data, error } = await supabase
         .from('profiles')
-        .insert([profileData])
+        .insert([insertData])
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('User creation error:', error);
+        throw error;
+      }
+      
+      console.log('User created successfully:', data);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('User creation mutation success:', data);
+      // Invalidate multiple query keys to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ['users_dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['user_stats'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      
       setIsOpen(false);
       onUserCreated();
-      toast({ title: "用户创建成功", description: "新用户已成功添加到系统中" });
+      toast({ 
+        title: "用户创建成功", 
+        description: `用户 ${data.full_name || data.email} 已成功添加到系统中` 
+      });
     },
     onError: (error: any) => {
-      toast({ title: "创建失败", description: error.message, variant: "destructive" });
+      console.error('User creation mutation error:', error);
+      toast({ 
+        title: "创建失败", 
+        description: error.message || "创建用户时发生错误", 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -57,7 +89,10 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
           <DialogDescription>填写用户基本信息来创建新的用户账户</DialogDescription>
         </DialogHeader>
         <ProfileForm
-          onSubmit={(data) => createMutation.mutate(data)}
+          onSubmit={(data) => {
+            console.log('ProfileForm submitted data:', data);
+            createMutation.mutate(data);
+          }}
           buttonText="创建用户"
           isLoading={createMutation.isPending}
         />

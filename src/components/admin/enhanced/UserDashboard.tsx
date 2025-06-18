@@ -22,9 +22,11 @@ const UserDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
 
-  const { data: usersData, isLoading } = useQuery({
+  const { data: usersData, isLoading, refetch } = useQuery({
     queryKey: ['users_dashboard', searchTerm, statusFilter, currentPage],
     queryFn: async () => {
+      console.log('Fetching users with filters:', { searchTerm, statusFilter, currentPage });
+      
       let query = supabase
         .from('profiles')
         .select('*')
@@ -44,9 +46,14 @@ const UserDashboard = () => {
       query = query.range(from, to);
       
       const { data, error, count } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
       
       if (!data) return { users: [], totalCount: 0 };
+
+      console.log('Fetched users:', data.length);
 
       // Get tenant membership data for each user
       const userIds = data.map(user => user.id);
@@ -82,7 +89,7 @@ const UserDashboard = () => {
     },
   });
 
-  const { data: stats } = useQuery({
+  const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['user_stats'],
     queryFn: async () => {
       const [
@@ -107,8 +114,10 @@ const UserDashboard = () => {
   });
 
   const handleUserCreated = () => {
-    // This will trigger a re-fetch of the user data
-    console.log('User created successfully');
+    console.log('User created, refreshing data...');
+    // Trigger manual refresh of both queries
+    refetch();
+    refetchStats();
   };
 
   if (isLoading) {
