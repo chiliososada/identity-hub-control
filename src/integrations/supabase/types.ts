@@ -138,6 +138,65 @@ export type Database = {
           },
         ]
       }
+      jwt_keys: {
+        Row: {
+          algorithm: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          is_primary: boolean | null
+          key_id: string
+          key_name: string
+          last_used_at: string | null
+          private_key: string
+          public_key: string
+          usage_count: number | null
+        }
+        Insert: {
+          algorithm?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          key_id: string
+          key_name: string
+          last_used_at?: string | null
+          private_key: string
+          public_key: string
+          usage_count?: number | null
+        }
+        Update: {
+          algorithm?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          key_id?: string
+          key_name?: string
+          last_used_at?: string | null
+          private_key?: string
+          public_key?: string
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jwt_keys_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oauth_clients: {
         Row: {
           client_id: string

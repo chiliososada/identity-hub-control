@@ -11,14 +11,26 @@ import KeysTable from './jwt/KeysTable';
 import TokenSettings from './jwt/TokenSettings';
 import GenerateKeyDialog from './jwt/GenerateKeyDialog';
 import { useTokenOperations } from './jwt/useTokenOperations';
-import { AuthToken, JWTKey } from './jwt/types';
+import { useJWTKeys } from './jwt/useJWTKeys';
+import { AuthToken } from './jwt/types';
 
 const JWTTokenManagement = () => {
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
-  const [keyRefreshTrigger, setKeyRefreshTrigger] = useState(0);
   const { toast } = useToast();
   const { batchRevokeTokensMutation } = useTokenOperations();
+
+  // 使用新的JWT密钥管理hook
+  const {
+    jwtKeys,
+    isLoading: keysLoading,
+    generateKeyPair,
+    isGenerating,
+    deleteKey,
+    isDeleting,
+    toggleKeyStatus,
+    isUpdating
+  } = useJWTKeys();
 
   // Fetch active tokens with user and tenant information
   const { data: tokens = [], isLoading: tokensLoading, error: tokensError } = useQuery({
@@ -56,46 +68,6 @@ const JWTTokenManagement = () => {
     }
   });
 
-  // Mock data for JWT keys (updated with refresh trigger)
-  const mockJWTKeys: JWTKey[] = [
-    {
-      id: '1',
-      name: 'Production Key',
-      algorithm: 'RS256',
-      created_at: '2024-01-15',
-      expires_at: '2025-01-15',
-      is_active: true,
-      usage_count: tokens.filter(t => !t.is_revoked).length,
-      last_used: tokens[0]?.last_used_at || '2024-06-18 10:30:00'
-    },
-    {
-      id: '2', 
-      name: 'Development Key',
-      algorithm: 'RS256',
-      created_at: '2024-06-01',
-      expires_at: '2025-06-01',
-      is_active: true,
-      usage_count: Math.floor(tokens.length / 3),
-      last_used: '2024-06-18 09:15:00'
-    }
-  ];
-
-  // Add mock keys based on refresh trigger (simulating new generated keys)
-  if (keyRefreshTrigger > 0) {
-    for (let i = 0; i < keyRefreshTrigger; i++) {
-      mockJWTKeys.push({
-        id: `generated-${i + 3}`,
-        name: `Generated Key ${i + 1}`,
-        algorithm: 'RS256',
-        created_at: new Date().toISOString().split('T')[0],
-        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        is_active: true,
-        usage_count: 0,
-        last_used: '从未使用'
-      });
-    }
-  }
-
   const handleSelectToken = (tokenId: string, checked: boolean) => {
     if (checked) {
       setSelectedTokens(prev => [...prev, tokenId]);
@@ -126,9 +98,8 @@ const JWTTokenManagement = () => {
     setSelectedTokens([]);
   };
 
-  const handleKeyGenerated = () => {
-    console.log('Key generated, refreshing key list...');
-    setKeyRefreshTrigger(prev => prev + 1);
+  const handleGenerateKey = (data: { keyName: string; expiryDays: number; description?: string }) => {
+    generateKeyPair(data);
   };
 
   if (tokensError) {
@@ -194,7 +165,7 @@ const JWTTokenManagement = () => {
                     JWT 密钥对管理
                   </CardTitle>
                   <CardDescription>
-                    管理用于签名和验证JWT Token的密钥对 ({mockJWTKeys.length} 个密钥对)
+                    管理用于签名和验证JWT Token的密钥对 ({jwtKeys.length} 个密钥对)
                   </CardDescription>
                 </div>
                 
@@ -202,7 +173,8 @@ const JWTTokenManagement = () => {
                   <GenerateKeyDialog 
                     isOpen={isGenerateDialogOpen} 
                     onOpenChange={setIsGenerateDialogOpen}
-                    onKeyGenerated={handleKeyGenerated}
+                    onGenerate={handleGenerateKey}
+                    isGenerating={isGenerating}
                   />
                   <button
                     onClick={() => setIsGenerateDialogOpen(true)}
@@ -215,7 +187,14 @@ const JWTTokenManagement = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <KeysTable keys={mockJWTKeys} />
+              <KeysTable 
+                keys={jwtKeys}
+                isLoading={keysLoading}
+                onDeleteKey={deleteKey}
+                onToggleStatus={toggleKeyStatus}
+                isDeleting={isDeleting}
+                isUpdating={isUpdating}
+              />
             </CardContent>
           </Card>
         </TabsContent>
