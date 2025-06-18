@@ -63,6 +63,7 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
       case 'admin': return 'secondary';
       case 'member': return 'outline';
       case 'viewer': return 'outline';
+      case 'test_user': return 'destructive';
       default: return 'outline';
     }
   };
@@ -73,6 +74,7 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
       case 'admin': return '管理员';
       case 'member': return '成员';
       case 'viewer': return '查看者';
+      case 'test_user': return '测试用户';
       default: return role;
     }
   };
@@ -105,7 +107,8 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
                 <TableRow>
                   <TableHead>用户信息</TableHead>
                   <TableHead>公司职位</TableHead>
-                  <TableHead>租户角色</TableHead>
+                  <TableHead>用户角色</TableHead>
+                  <TableHead>账户类型</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead>最后登录</TableHead>
                   <TableHead>操作</TableHead>
@@ -140,14 +143,36 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {user.tenant_roles?.slice(0, 2).map((membership, index) => (
-                          <Badge key={index} variant={getRoleBadgeVariant(membership.role)} className="text-xs">
+                        <Badge variant={getRoleBadgeVariant(user.role)} className="text-xs">
+                          {getRoleDisplayName(user.role)}
+                        </Badge>
+                        {user.tenant_roles?.slice(0, 1).map((membership, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
                             {getRoleDisplayName(membership.role)}
                           </Badge>
-                        )) || <span className="text-sm text-muted-foreground">无租户</span>}
-                        {user.tenant_roles && user.tenant_roles.length > 2 && (
+                        ))}
+                        {user.tenant_roles && user.tenant_roles.length > 1 && (
                           <Badge variant="outline" className="text-xs">
-                            +{user.tenant_roles.length - 2}
+                            +{user.tenant_roles.length - 1}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {user.is_test_account && (
+                          <Badge variant="destructive" className="text-xs">
+                            测试账户
+                          </Badge>
+                        )}
+                        {user.is_company_admin && (
+                          <Badge variant="secondary" className="text-xs">
+                            公司管理员
+                          </Badge>
+                        )}
+                        {!user.is_test_account && !user.is_company_admin && (
+                          <Badge variant="outline" className="text-xs">
+                            普通用户
                           </Badge>
                         )}
                       </div>
@@ -292,6 +317,28 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
                 <div>
                   <label className="text-sm font-medium">职位</label>
                   <p className="text-sm text-muted-foreground">{selectedUser.job_title || '未设置'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">用户角色</label>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getRoleBadgeVariant(selectedUser.role)}>
+                      {getRoleDisplayName(selectedUser.role)}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">账户类型</label>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedUser.is_test_account && (
+                      <Badge variant="destructive">测试账户</Badge>
+                    )}
+                    {selectedUser.is_company_admin && (
+                      <Badge variant="secondary">公司管理员</Badge>
+                    )}
+                    {!selectedUser.is_test_account && !selectedUser.is_company_admin && (
+                      <Badge variant="outline">普通用户</Badge>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium">状态</label>

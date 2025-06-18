@@ -88,7 +88,19 @@ const ProfilesManagement = () => {
       case 'admin': return 'secondary';
       case 'member': return 'outline';
       case 'viewer': return 'outline';
+      case 'test_user': return 'destructive';
       default: return 'outline';
+    }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'owner': return '所有者';
+      case 'admin': return '管理员';
+      case 'member': return '成员';
+      case 'viewer': return '查看者';
+      case 'test_user': return '测试用户';
+      default: return role;
     }
   };
 
@@ -199,10 +211,11 @@ const ProfilesManagement = () => {
                         {profile.is_active ? '激活' : '未激活'}
                       </Badge>
                       <Badge variant={getRoleBadgeVariant(profile.role)}>
-                        {profile.role === 'owner' ? '所有者' : 
-                         profile.role === 'admin' ? '管理员' : 
-                         profile.role === 'member' ? '成员' : '查看者'}
+                        {getRoleDisplayName(profile.role)}
                       </Badge>
+                      {profile.is_test_account && (
+                        <Badge variant="destructive">测试账户</Badge>
+                      )}
                       {profile.is_company_admin && (
                         <Badge variant="outline">公司管理员</Badge>
                       )}
