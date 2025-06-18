@@ -227,6 +227,12 @@ const TenantsManagement = () => {
                           <p className="text-foreground">{tenant.contact_email}</p>
                         </div>
                       )}
+                      {tenant.contact_phone && (
+                        <div>
+                          <span className="font-medium text-muted-foreground">联系电话:</span>
+                          <p className="text-foreground">{tenant.contact_phone}</p>
+                        </div>
+                      )}
                       {tenant.domain && (
                         <div>
                           <span className="font-medium text-muted-foreground">域名:</span>
