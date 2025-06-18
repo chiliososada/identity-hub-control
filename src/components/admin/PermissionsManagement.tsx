@@ -15,6 +15,7 @@ import { Tables } from '@/integrations/supabase/types';
 type TenantMember = Tables<'tenant_members'>;
 type Profile = Tables<'profiles'>;
 type Tenant = Tables<'tenants'>;
+type RoleType = Tables<'tenant_members'>['role'];
 
 type EnhancedTenantMember = TenantMember & {
   tenant_name?: string;
@@ -39,7 +40,7 @@ const PermissionsManagement = () => {
         .order('joined_at', { ascending: false });
       
       if (roleFilter !== 'all') {
-        memberQuery = memberQuery.eq('role', roleFilter);
+        memberQuery = memberQuery.eq('role', roleFilter as RoleType);
       }
       
       if (statusFilter !== 'all') {
@@ -90,7 +91,7 @@ const PermissionsManagement = () => {
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: Tables<'tenant_members'>['role'] }) => {
+    mutationFn: async ({ id, role }: { id: string; role: RoleType }) => {
       const { data, error } = await supabase
         .from('tenant_members')
         .update({ role })
@@ -292,7 +293,7 @@ const PermissionsManagement = () => {
                             value={permission.role}
                             onValueChange={(role) => updateRoleMutation.mutate({ 
                               id: permission.id, 
-                              role: role as Tables<'tenant_members'>['role']
+                              role: role as RoleType
                             })}
                           >
                             <SelectTrigger className="w-32">
