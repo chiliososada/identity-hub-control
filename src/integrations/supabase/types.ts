@@ -9,6 +9,135 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          details: Json | null
+          error_message: string | null
+          id: string
+          ip_address: unknown | null
+          resource_id: string | null
+          resource_type: string | null
+          success: boolean | null
+          tenant_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          resource_id?: string | null
+          resource_type?: string | null
+          success?: boolean | null
+          tenant_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          resource_id?: string | null
+          resource_type?: string | null
+          success?: boolean | null
+          tenant_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auth_tokens: {
+        Row: {
+          created_at: string | null
+          device_fingerprint: string | null
+          device_name: string | null
+          expires_at: string
+          id: string
+          ip_address: unknown | null
+          is_revoked: boolean | null
+          last_used_at: string | null
+          revoked_at: string | null
+          revoked_reason: string | null
+          tenant_id: string
+          token_id: string
+          token_type: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          device_fingerprint?: string | null
+          device_name?: string | null
+          expires_at: string
+          id?: string
+          ip_address?: unknown | null
+          is_revoked?: boolean | null
+          last_used_at?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          tenant_id: string
+          token_id: string
+          token_type?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          device_fingerprint?: string | null
+          device_name?: string | null
+          expires_at?: string
+          id?: string
+          ip_address?: unknown | null
+          is_revoked?: boolean | null
+          last_used_at?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          tenant_id?: string
+          token_id?: string
+          token_type?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auth_tokens_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auth_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oauth_clients: {
         Row: {
           client_id: string
@@ -70,8 +199,11 @@ export type Database = {
           is_company_admin: boolean | null
           is_test_account: boolean | null
           job_title: string | null
+          last_ip_address: unknown | null
           last_login_at: string | null
           last_name: string | null
+          locked_until: string | null
+          login_attempts: number | null
           permissions: Json | null
           position: string | null
           role: string
@@ -91,8 +223,11 @@ export type Database = {
           is_company_admin?: boolean | null
           is_test_account?: boolean | null
           job_title?: string | null
+          last_ip_address?: unknown | null
           last_login_at?: string | null
           last_name?: string | null
+          locked_until?: string | null
+          login_attempts?: number | null
           permissions?: Json | null
           position?: string | null
           role?: string
@@ -112,8 +247,11 @@ export type Database = {
           is_company_admin?: boolean | null
           is_test_account?: boolean | null
           job_title?: string | null
+          last_ip_address?: unknown | null
           last_login_at?: string | null
           last_name?: string | null
+          locked_until?: string | null
+          login_attempts?: number | null
           permissions?: Json | null
           position?: string | null
           role?: string
@@ -121,6 +259,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      system_configs: {
+        Row: {
+          config_key: string
+          config_value: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          config_key: string
+          config_value: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          config_key?: string
+          config_value?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_configs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_members: {
         Row: {
@@ -169,6 +348,8 @@ export type Database = {
       }
       tenants: {
         Row: {
+          api_key: string | null
+          client_secret: string | null
           company_email: string | null
           company_info: Json | null
           company_name: string | null
@@ -176,8 +357,12 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           domain: string | null
+          expires_at: string | null
+          features: Json | null
           id: string
           is_active: boolean
+          last_verified_at: string | null
+          license_key: string | null
           locale: string | null
           max_users: number | null
           name: string
@@ -188,6 +373,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          api_key?: string | null
+          client_secret?: string | null
           company_email?: string | null
           company_info?: Json | null
           company_name?: string | null
@@ -195,8 +382,12 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           domain?: string | null
+          expires_at?: string | null
+          features?: Json | null
           id?: string
           is_active?: boolean
+          last_verified_at?: string | null
+          license_key?: string | null
           locale?: string | null
           max_users?: number | null
           name: string
@@ -207,6 +398,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          api_key?: string | null
+          client_secret?: string | null
           company_email?: string | null
           company_info?: Json | null
           company_name?: string | null
@@ -214,8 +407,12 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           domain?: string | null
+          expires_at?: string | null
+          features?: Json | null
           id?: string
           is_active?: boolean
+          last_verified_at?: string | null
+          license_key?: string | null
           locale?: string | null
           max_users?: number | null
           name?: string
