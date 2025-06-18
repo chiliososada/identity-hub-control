@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Tables } from '@/integrations/supabase/types';
+import { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 type OAuthClient = Tables<'oauth_clients'>;
 
@@ -47,10 +47,10 @@ const OAuthClientsManagement = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (clientData: Partial<OAuthClient>) => {
+    mutationFn: async (clientData: TablesInsert<'oauth_clients'>) => {
       const { data, error } = await supabase
         .from('oauth_clients')
-        .insert([clientData])
+        .insert(clientData)
         .select()
         .single();
       
@@ -104,7 +104,7 @@ const OAuthClientsManagement = () => {
 
   const OAuthClientForm = ({ client, onSubmit, buttonText }: {
     client?: OAuthClient | null;
-    onSubmit: (data: any) => void;
+    onSubmit: (data: TablesInsert<'oauth_clients'>) => void;
     buttonText: string;
   }) => {
     const [formData, setFormData] = useState({
@@ -119,11 +119,14 @@ const OAuthClientsManagement = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      const submitData = {
-        ...formData,
+      const submitData: TablesInsert<'oauth_clients'> = {
+        client_name: formData.client_name,
+        client_id: formData.client_id,
+        client_secret: formData.client_secret,
         redirect_uris: formData.redirect_uris.split('\n').filter(uri => uri.trim()),
         scopes: formData.scopes.split(',').map(scope => scope.trim()).filter(scope => scope),
         tenant_id: formData.tenant_id || null,
+        is_active: formData.is_active,
       };
       onSubmit(submitData);
     };

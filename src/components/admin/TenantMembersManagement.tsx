@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Tables } from '@/integrations/supabase/types';
+import { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 type TenantMember = Tables<'tenant_members'>;
 
@@ -63,10 +63,10 @@ const TenantMembersManagement = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (memberData: Partial<TenantMember>) => {
+    mutationFn: async (memberData: TablesInsert<'tenant_members'>) => {
       const { data, error } = await supabase
         .from('tenant_members')
-        .insert([memberData])
+        .insert(memberData)
         .select()
         .single();
       
@@ -107,21 +107,24 @@ const TenantMembersManagement = () => {
 
   const TenantMemberForm = ({ member, onSubmit, buttonText }: {
     member?: TenantMember | null;
-    onSubmit: (data: any) => void;
+    onSubmit: (data: TablesInsert<'tenant_members'>) => void;
     buttonText: string;
   }) => {
     const [formData, setFormData] = useState({
       tenant_id: member?.tenant_id || '',
       user_id: member?.user_id || '',
-      role: member?.role || 'member',
+      role: member?.role || 'member' as const,
       is_active: member?.is_active ?? true,
       invited_by: member?.invited_by || '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      const submitData = {
-        ...formData,
+      const submitData: TablesInsert<'tenant_members'> = {
+        tenant_id: formData.tenant_id,
+        user_id: formData.user_id,
+        role: formData.role,
+        is_active: formData.is_active,
         invited_by: formData.invited_by || null,
       };
       onSubmit(submitData);

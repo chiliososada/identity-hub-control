@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Tables } from '@/integrations/supabase/types';
+import { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 type Tenant = Tables<'tenants'>;
 
@@ -34,10 +34,10 @@ const TenantsManagement = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (tenantData: Partial<Tenant>) => {
+    mutationFn: async (tenantData: TablesInsert<'tenants'>) => {
       const { data, error } = await supabase
         .from('tenants')
-        .insert([tenantData])
+        .insert(tenantData)
         .select()
         .single();
       
@@ -78,7 +78,7 @@ const TenantsManagement = () => {
 
   const TenantForm = ({ tenant, onSubmit, buttonText }: {
     tenant?: Tenant | null;
-    onSubmit: (data: any) => void;
+    onSubmit: (data: TablesInsert<'tenants'>) => void;
     buttonText: string;
   }) => {
     const [formData, setFormData] = useState({
@@ -88,7 +88,7 @@ const TenantsManagement = () => {
       contact_email: tenant?.contact_email || '',
       contact_phone: tenant?.contact_phone || '',
       domain: tenant?.domain || '',
-      tenant_type: tenant?.tenant_type || 'personal',
+      tenant_type: tenant?.tenant_type || 'personal' as const,
       subscription_plan: tenant?.subscription_plan || 'free',
       max_users: tenant?.max_users || 5,
       is_active: tenant?.is_active ?? true,
@@ -98,7 +98,21 @@ const TenantsManagement = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      onSubmit(formData);
+      const submitData: TablesInsert<'tenants'> = {
+        name: formData.name,
+        tenant_type: formData.tenant_type,
+        company_name: formData.company_name || null,
+        company_email: formData.company_email || null,
+        contact_email: formData.contact_email || null,
+        contact_phone: formData.contact_phone || null,
+        domain: formData.domain || null,
+        subscription_plan: formData.subscription_plan || null,
+        max_users: formData.max_users || null,
+        is_active: formData.is_active,
+        time_zone: formData.time_zone || null,
+        locale: formData.locale || null,
+      };
+      onSubmit(submitData);
     };
 
     return (
