@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,9 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Users, UserPlus, Search, Filter, MoreHorizontal, Calendar, Building } from 'lucide-react';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Tables } from '@/integrations/supabase/types';
+import { ProfileForm } from '../forms/ProfileForm';
+import { useToast } from '@/hooks/use-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 type Profile = Tables<'profiles'>;
 type EnhancedProfile = Profile & {
@@ -25,7 +28,10 @@ const UserDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [pageSize] = useState(10);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['users_dashboard', searchTerm, statusFilter, currentPage],
@@ -108,6 +114,28 @@ const UserDashboard = () => {
         inactiveUsers: inactiveUsers || 0,
         newUsersThisMonth: newUsersThisMonth || 0
       };
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (profileData: Partial<Profile>) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([profileData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users_dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['user_stats'] });
+      setIsCreateOpen(false);
+      toast({ title: "用户创建成功", description: "新用户已成功添加到系统中" });
+    },
+    onError: (error: any) => {
+      toast({ title: "创建失败", description: error.message, variant: "destructive" });
     },
   });
 
@@ -232,10 +260,25 @@ const UserDashboard = () => {
               </SelectContent>
             </Select>
             
-            <Button>
-              <UserPlus className="h-4 w-4 mr-2" />
-              添加用户
-            </Button>
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  添加用户
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>创建新用户</DialogTitle>
+                  <DialogDescription>填写用户基本信息来创建新的用户账户</DialogDescription>
+                </DialogHeader>
+                <ProfileForm
+                  onSubmit={(data) => createMutation.mutate(data)}
+                  buttonText="创建用户"
+                  isLoading={createMutation.isPending}
+                />
+              </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>
