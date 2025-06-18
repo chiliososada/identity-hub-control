@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -129,6 +130,30 @@ const TenantMembersManagement = () => {
     onError: (error: any) => {
       console.error('Update mutation error:', error);
       toast({ title: "更新失败", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      console.log('Deleting tenant member:', memberId);
+      const { error } = await supabase
+        .from('tenant_members')
+        .delete()
+        .eq('id', memberId);
+      
+      if (error) {
+        console.error('Error deleting tenant member:', error);
+        throw error;
+      }
+      console.log('Deleted tenant member:', memberId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant_members'] });
+      toast({ title: "租户成员删除成功" });
+    },
+    onError: (error: any) => {
+      console.error('Delete mutation error:', error);
+      toast({ title: "删除失败", description: error.message, variant: "destructive" });
     },
   });
 
@@ -359,6 +384,37 @@ const TenantMembersManagement = () => {
                       />
                     </DialogContent>
                   </Dialog>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>确认删除</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          你确定要将用户 "{member.profiles?.full_name || member.profiles?.email || '未知用户'}" 
+                          从租户 "{member.tenants?.name || '未知租户'}" 中移除吗？此操作无法撤销。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>取消</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteMutation.mutate(member.id)}
+                          className="bg-red-600 hover:bg-red-700"
+                          disabled={deleteMutation.isPending}
+                        >
+                          {deleteMutation.isPending ? '删除中...' : '确认删除'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
               <div className="text-sm text-muted-foreground">
