@@ -102,6 +102,10 @@ const JWTTokenManagement = () => {
     generateKeyPair(data);
   };
 
+  const handleToggleKeyStatus = (keyId: string, isActive: boolean) => {
+    toggleKeyStatus({ keyId, isActive });
+  };
+
   if (tokensError) {
     console.error('Error loading tokens:', tokensError);
   }
@@ -191,7 +195,7 @@ const JWTTokenManagement = () => {
                 keys={jwtKeys}
                 isLoading={keysLoading}
                 onDeleteKey={deleteKey}
-                onToggleStatus={toggleKeyStatus}
+                onToggleStatus={handleToggleKeyStatus}
                 isDeleting={isDeleting}
                 isUpdating={isUpdating}
               />
