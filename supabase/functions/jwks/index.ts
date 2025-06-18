@@ -1,6 +1,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { extractJWKSFromPublicKey } from '../_shared/jwt-utils.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -40,15 +41,19 @@ Deno.serve(async (req) => {
 
     // 转换为JWKS格式
     const jwks = {
-      keys: jwtKeys.map(key => ({
-        kty: "RSA", // 密钥类型
-        kid: key.key_id, // 密钥ID
-        use: "sig", // 用途：签名
-        alg: key.algorithm, // 算法
-        // 这里应该从公钥中提取n和e参数，现在使用模拟数据
-        n: "4f5wg5l2hKsTeNem_V41fGnJm6gOdrj8ym3rFkEjWT2btf06nmZpjgp2Q8y-8t3l-bJgK2I9FbZN9ZqHE5y1mKNKr8-HKsTeNem_V41fGnJm6gOdrj8ym3rFkEjWT2btf06nmZpjgp2Q8y-8t3l",
-        e: "AQAB"
-      }))
+      keys: jwtKeys.map(key => {
+        // 从公钥提取 RSA 参数
+        const { n, e } = extractJWKSFromPublicKey(key.public_key)
+        
+        return {
+          kty: "RSA", // 密钥类型
+          kid: key.key_id, // 密钥ID
+          use: "sig", // 用途：签名
+          alg: key.algorithm, // 算法
+          n: n, // RSA 模数
+          e: e  // RSA 指数
+        }
+      })
     }
 
     console.log(`Returning ${jwks.keys.length} active keys`)

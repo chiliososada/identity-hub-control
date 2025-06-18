@@ -69,6 +69,36 @@ export type Database = {
           },
         ]
       }
+      auth_attempts: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          failure_reason: string | null
+          id: string
+          ip_address: unknown | null
+          success: boolean | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          failure_reason?: string | null
+          id?: string
+          ip_address?: unknown | null
+          success?: boolean | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          failure_reason?: string | null
+          id?: string
+          ip_address?: unknown | null
+          success?: boolean | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       auth_tokens: {
         Row: {
           created_at: string | null
@@ -148,8 +178,10 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_primary: boolean | null
+          key_format: string | null
           key_id: string
           key_name: string
+          key_size: number | null
           last_used_at: string | null
           private_key: string
           public_key: string
@@ -164,8 +196,10 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_primary?: boolean | null
+          key_format?: string | null
           key_id: string
           key_name: string
+          key_size?: number | null
           last_used_at?: string | null
           private_key: string
           public_key: string
@@ -180,8 +214,10 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_primary?: boolean | null
+          key_format?: string | null
           key_id?: string
           key_name?: string
+          key_size?: number | null
           last_used_at?: string | null
           private_key?: string
           public_key?: string
@@ -244,6 +280,35 @@ export type Database = {
           },
         ]
       }
+      password_history: {
+        Row: {
+          created_at: string | null
+          id: string
+          password_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          password_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          password_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "password_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -263,8 +328,13 @@ export type Database = {
           last_name: string | null
           locked_until: string | null
           login_attempts: number | null
+          password_hash: string | null
+          password_salt: string | null
+          password_updated_at: string | null
           permissions: Json | null
           position: string | null
+          reset_token: string | null
+          reset_token_expires_at: string | null
           role: string
           tenant_id: string | null
           updated_at: string
@@ -287,8 +357,13 @@ export type Database = {
           last_name?: string | null
           locked_until?: string | null
           login_attempts?: number | null
+          password_hash?: string | null
+          password_salt?: string | null
+          password_updated_at?: string | null
           permissions?: Json | null
           position?: string | null
+          reset_token?: string | null
+          reset_token_expires_at?: string | null
           role?: string
           tenant_id?: string | null
           updated_at?: string
@@ -311,8 +386,13 @@ export type Database = {
           last_name?: string | null
           locked_until?: string | null
           login_attempts?: number | null
+          password_hash?: string | null
+          password_salt?: string | null
+          password_updated_at?: string | null
           permissions?: Json | null
           position?: string | null
+          reset_token?: string | null
+          reset_token_expires_at?: string | null
           role?: string
           tenant_id?: string | null
           updated_at?: string
@@ -491,6 +571,14 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      hash_password: {
+        Args: { password: string; salt?: string }
+        Returns: string
+      }
+      verify_password: {
+        Args: { password: string; stored_hash: string }
+        Returns: boolean
       }
     }
     Enums: {

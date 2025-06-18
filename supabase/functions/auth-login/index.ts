@@ -1,6 +1,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { generateJWT, generateSecureToken, getClientIP } from '../_shared/jwt-utils.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -29,8 +30,19 @@ Deno.serve(async (req) => {
     }
 
     const { email, password, tenant_id, device_name }: LoginRequest = await req.json()
+    const clientIP = getClientIP(req)
+    const userAgent = req.headers.get('user-agent') || 'Unknown'
 
     if (!email || !password) {
+      // 记录失败尝试
+      await supabase.from('auth_attempts').insert({
+        email,
+        ip_address: clientIP,
+        user_agent: userAgent,
+        success: false,
+        failure_reason: 'Missing email or password'
+      })
+
       return new Response(
         JSON.stringify({ error: 'Email and password are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -39,7 +51,7 @@ Deno.serve(async (req) => {
 
     console.log('Login attempt for:', email)
 
-    // 验证用户凭据（这里简化处理，实际应该验证密码）
+    // 查找用户
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -48,8 +60,86 @@ Deno.serve(async (req) => {
       .single()
 
     if (profileError || !profile) {
+      // 记录失败尝试
+      await supabase.from('auth_attempts').insert({
+        email,
+        ip_address: clientIP,
+        user_agent: userAgent,
+        success: false,
+        failure_reason: 'User not found or inactive'
+      })
+
       return new Response(
         JSON.stringify({ error: 'Invalid credentials' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 检查账户是否被锁定
+    if (profile.locked_until && new Date(profile.locked_until) > new Date()) {
+      await supabase.from('auth_attempts').insert({
+        email,
+        ip_address: clientIP,
+        user_agent: userAgent,
+        success: false,
+        failure_reason: 'Account locked'
+      })
+
+      return new Response(
+        JSON.stringify({ error: 'Account is temporarily locked due to too many failed attempts' }),
+        { status: 423, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 验证密码
+    if (!profile.password_hash) {
+      await supabase.from('auth_attempts').insert({
+        email,
+        ip_address: clientIP,
+        user_agent: userAgent,
+        success: false,
+        failure_reason: 'No password set'
+      })
+
+      return new Response(
+        JSON.stringify({ error: 'Password not set for this account' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 使用数据库函数验证密码
+    const { data: passwordValid, error: passwordError } = await supabase
+      .rpc('verify_password', {
+        password: password,
+        stored_hash: profile.password_hash
+      })
+
+    if (passwordError || !passwordValid) {
+      // 增加失败尝试次数
+      const newAttempts = (profile.login_attempts || 0) + 1
+      const lockUntil = newAttempts >= 5 ? new Date(Date.now() + 30 * 60 * 1000) : null // 5次失败锁定30分钟
+
+      await supabase
+        .from('profiles')
+        .update({
+          login_attempts: newAttempts,
+          locked_until: lockUntil?.toISOString()
+        })
+        .eq('id', profile.id)
+
+      await supabase.from('auth_attempts').insert({
+        email,
+        ip_address: clientIP,
+        user_agent: userAgent,
+        success: false,
+        failure_reason: 'Invalid password'
+      })
+
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid credentials',
+          attempts_remaining: Math.max(0, 5 - newAttempts)
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -71,9 +161,29 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 生成JWT Token（这里使用模拟实现）
-    const tokenId = `token-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000) // 8小时后过期
+    // 生成真正的 JWT Token
+    const now = Math.floor(Date.now() / 1000)
+    const expiresIn = 8 * 60 * 60 // 8小时
+    const tokenId = generateSecureToken(32)
+    
+    const jwtPayload = {
+      iss: supabaseUrl,
+      sub: profile.id,
+      aud: 'authenticated',
+      exp: now + expiresIn,
+      iat: now,
+      jti: tokenId,
+      email: profile.email,
+      role: profile.role,
+      tenant_id: tenant_id || profile.tenant_id
+    }
+
+    const accessToken = await generateJWT(
+      jwtPayload,
+      jwtKey.private_key,
+      jwtKey.key_id,
+      jwtKey.algorithm
+    )
     
     // 保存token记录到数据库
     const { data: authToken, error: tokenError } = await supabase
@@ -83,10 +193,10 @@ Deno.serve(async (req) => {
         user_id: profile.id,
         tenant_id: tenant_id || profile.tenant_id,
         token_type: 'access_token',
-        expires_at: expiresAt.toISOString(),
+        expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
         device_name: device_name || 'Unknown Device',
-        ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-        user_agent: req.headers.get('user-agent')
+        ip_address: clientIP,
+        user_agent: userAgent
       })
       .select()
       .single()
@@ -99,6 +209,17 @@ Deno.serve(async (req) => {
       )
     }
 
+    // 更新用户登录信息
+    await supabase
+      .from('profiles')
+      .update({ 
+        login_attempts: 0,
+        locked_until: null,
+        last_login_at: new Date().toISOString(),
+        last_ip_address: clientIP
+      })
+      .eq('id', profile.id)
+
     // 更新JWT密钥使用次数
     await supabase
       .from('jwt_keys')
@@ -108,14 +229,22 @@ Deno.serve(async (req) => {
       })
       .eq('id', jwtKey.id)
 
+    // 记录成功登录
+    await supabase.from('auth_attempts').insert({
+      email,
+      ip_address: clientIP,
+      user_agent: userAgent,
+      success: true
+    })
+
     console.log('Login successful for user:', profile.id)
 
     return new Response(
       JSON.stringify({
-        access_token: tokenId, // 实际应用中这里应该是真正的JWT token
+        access_token: accessToken,
         token_type: 'Bearer',
-        expires_in: 8 * 3600, // 8小时
-        expires_at: expiresAt.toISOString(),
+        expires_in: expiresIn,
+        expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
         user: {
           id: profile.id,
           email: profile.email,
