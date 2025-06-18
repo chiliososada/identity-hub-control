@@ -35,6 +35,7 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
         job_title: profileData.job_title || null,
         is_active: profileData.is_active ?? true,
         is_company_admin: profileData.is_company_admin ?? false,
+        is_test_account: profileData.is_test_account ?? false,
       };
       
       const { data, error } = await supabase
@@ -60,9 +61,11 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
       
       setIsOpen(false);
       onUserCreated();
+      
+      const accountType = data.is_test_account ? '测试账户' : '用户';
       toast({ 
         title: "用户创建成功", 
-        description: `用户 ${data.full_name || data.email} 已成功添加到系统中` 
+        description: `${accountType} ${data.full_name || data.email} 已成功添加到系统中` 
       });
     },
     onError: (error: any) => {
@@ -86,7 +89,7 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>创建新用户</DialogTitle>
-          <DialogDescription>填写用户基本信息来创建新的用户账户</DialogDescription>
+          <DialogDescription>填写用户基本信息来创建新的用户账户。勾选"测试账户"可创建测试用户。</DialogDescription>
         </DialogHeader>
         <ProfileForm
           onSubmit={(data) => {

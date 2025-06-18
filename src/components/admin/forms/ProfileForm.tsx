@@ -27,6 +27,7 @@ export const ProfileForm = ({ profile, onSubmit, buttonText, isLoading }: Profil
     job_title: profile?.job_title || '',
     is_active: profile?.is_active ?? true,
     is_company_admin: profile?.is_company_admin ?? false,
+    is_test_account: profile?.is_test_account ?? false,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -92,6 +93,7 @@ export const ProfileForm = ({ profile, onSubmit, buttonText, isLoading }: Profil
               <SelectItem value="admin">管理员</SelectItem>
               <SelectItem value="owner">所有者</SelectItem>
               <SelectItem value="viewer">查看者</SelectItem>
+              <SelectItem value="test_user">测试用户</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -156,6 +158,15 @@ export const ProfileForm = ({ profile, onSubmit, buttonText, isLoading }: Profil
             onCheckedChange={(checked) => setFormData({ ...formData, is_company_admin: !!checked })}
           />
           <Label htmlFor="is_company_admin" className="text-sm">公司管理员权限</Label>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="is_test_account"
+            checked={formData.is_test_account}
+            onCheckedChange={(checked) => setFormData({ ...formData, is_test_account: !!checked })}
+          />
+          <Label htmlFor="is_test_account" className="text-sm">测试账户</Label>
         </div>
       </div>
       
