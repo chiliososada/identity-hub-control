@@ -16,6 +16,7 @@ import { AuthToken, JWTKey } from './jwt/types';
 const JWTTokenManagement = () => {
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+  const [keyRefreshTrigger, setKeyRefreshTrigger] = useState(0);
   const { toast } = useToast();
   const { batchRevokeTokensMutation } = useTokenOperations();
 
@@ -55,7 +56,7 @@ const JWTTokenManagement = () => {
     }
   });
 
-  // Mock data for JWT keys (in real implementation, this would come from a keys table)
+  // Mock data for JWT keys (updated with refresh trigger)
   const mockJWTKeys: JWTKey[] = [
     {
       id: '1',
@@ -78,6 +79,22 @@ const JWTTokenManagement = () => {
       last_used: '2024-06-18 09:15:00'
     }
   ];
+
+  // Add mock keys based on refresh trigger (simulating new generated keys)
+  if (keyRefreshTrigger > 0) {
+    for (let i = 0; i < keyRefreshTrigger; i++) {
+      mockJWTKeys.push({
+        id: `generated-${i + 3}`,
+        name: `Generated Key ${i + 1}`,
+        algorithm: 'RS256',
+        created_at: new Date().toISOString().split('T')[0],
+        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        is_active: true,
+        usage_count: 0,
+        last_used: '从未使用'
+      });
+    }
+  }
 
   const handleSelectToken = (tokenId: string, checked: boolean) => {
     if (checked) {
@@ -107,6 +124,11 @@ const JWTTokenManagement = () => {
       reason: '批量撤销'
     });
     setSelectedTokens([]);
+  };
+
+  const handleKeyGenerated = () => {
+    console.log('Key generated, refreshing key list...');
+    setKeyRefreshTrigger(prev => prev + 1);
   };
 
   if (tokensError) {
@@ -172,14 +194,24 @@ const JWTTokenManagement = () => {
                     JWT 密钥对管理
                   </CardTitle>
                   <CardDescription>
-                    管理用于签名和验证JWT Token的密钥对
+                    管理用于签名和验证JWT Token的密钥对 ({mockJWTKeys.length} 个密钥对)
                   </CardDescription>
                 </div>
                 
-                <GenerateKeyDialog 
-                  isOpen={isGenerateDialogOpen} 
-                  onOpenChange={setIsGenerateDialogOpen} 
-                />
+                <div className="flex items-center gap-2">
+                  <GenerateKeyDialog 
+                    isOpen={isGenerateDialogOpen} 
+                    onOpenChange={setIsGenerateDialogOpen}
+                    onKeyGenerated={handleKeyGenerated}
+                  />
+                  <button
+                    onClick={() => setIsGenerateDialogOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                  >
+                    <Key className="h-4 w-4" />
+                    生成新密钥对
+                  </button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>

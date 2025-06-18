@@ -10,11 +10,13 @@ import { useToast } from '@/hooks/use-toast';
 interface GenerateKeyDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onKeyGenerated?: () => void;
 }
 
-const GenerateKeyDialog = ({ isOpen, onOpenChange }: GenerateKeyDialogProps) => {
+const GenerateKeyDialog = ({ isOpen, onOpenChange, onKeyGenerated }: GenerateKeyDialogProps) => {
   const [newKeyName, setNewKeyName] = useState('');
   const [keyExpiryDays, setKeyExpiryDays] = useState(365);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
   const generateKeyPair = () => {
@@ -34,27 +36,52 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDh/nCDmXaEqxN4
     return { publicKey: mockPublicKey, privateKey: mockPrivateKey };
   };
 
-  const handleGenerateKeyPair = () => {
+  const handleGenerateKeyPair = async () => {
     if (!newKeyName.trim()) {
       toast({ title: "错误", description: "请输入密钥名称", variant: "destructive" });
       return;
     }
 
-    const { publicKey, privateKey } = generateKeyPair();
+    setIsGenerating(true);
     
-    toast({ title: "密钥对生成成功", description: "新的JWT密钥对已生成并保存" });
-    onOpenChange(false);
-    setNewKeyName('');
+    try {
+      // Simulate key generation delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const { publicKey, privateKey } = generateKeyPair();
+      
+      console.log('Generated new key pair:', { name: newKeyName, expiryDays: keyExpiryDays });
+      
+      toast({ 
+        title: "密钥对生成成功", 
+        description: `密钥对 "${newKeyName}" 已生成并保存` 
+      });
+      
+      // Reset form
+      setNewKeyName('');
+      setKeyExpiryDays(365);
+      
+      // Close dialog
+      onOpenChange(false);
+      
+      // Notify parent component
+      if (onKeyGenerated) {
+        onKeyGenerated();
+      }
+    } catch (error) {
+      console.error('Error generating key pair:', error);
+      toast({ 
+        title: "生成失败", 
+        description: "生成密钥对时发生错误", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button>
-          <Key className="h-4 w-4 mr-2" />
-          生成新密钥对
-        </Button>
-      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>生成新的JWT密钥对</DialogTitle>
@@ -70,6 +97,7 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDh/nCDmXaEqxN4
               value={newKeyName}
               onChange={(e) => setNewKeyName(e.target.value)}
               placeholder="例如：Production Key"
+              disabled={isGenerating}
             />
           </div>
           <div>
@@ -78,13 +106,18 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDh/nCDmXaEqxN4
               id="expiryDays"
               type="number"
               value={keyExpiryDays}
-              onChange={(e) => setKeyExpiryDays(parseInt(e.target.value))}
+              onChange={(e) => setKeyExpiryDays(parseInt(e.target.value) || 365)}
               min="1"
               max="3650"
+              disabled={isGenerating}
             />
           </div>
-          <Button onClick={handleGenerateKeyPair} className="w-full">
-            生成密钥对
+          <Button 
+            onClick={handleGenerateKeyPair} 
+            className="w-full"
+            disabled={isGenerating || !newKeyName.trim()}
+          >
+            {isGenerating ? '正在生成...' : '生成密钥对'}
           </Button>
         </div>
       </DialogContent>
