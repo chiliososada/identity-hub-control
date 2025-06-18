@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +74,8 @@ export const TenantForm = ({ tenant, onSubmit, buttonText, isLoading }: TenantFo
         time_zone: formData.time_zone || null,
         locale: formData.locale || null,
       };
+      
+      console.log('Submitting tenant data:', submitData);
       onSubmit(submitData);
     }
   };
@@ -208,7 +209,10 @@ export const TenantForm = ({ tenant, onSubmit, buttonText, isLoading }: TenantFo
         
         <div>
           <Label htmlFor="locale">语言环境</Label>
-          <Select value={formData.locale} onValueChange={(value) => setFormData({ ...formData, locale: value })}>
+          <Select value={formData.locale} onValueChange={(value) => {
+            console.log('Locale changed to:', value);
+            setFormData({ ...formData, locale: value });
+          }}>
             <SelectTrigger>
               <SelectValue placeholder="选择语言" />
             </SelectTrigger>
