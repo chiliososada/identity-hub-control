@@ -66,7 +66,7 @@ const TenantMembersManagement = () => {
       console.log('Fetching profiles for members...');
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, email, company, created_at')
         .eq('is_active', true);
       
       console.log('Profiles query result:', { data, error });
@@ -183,6 +183,17 @@ const TenantMembersManagement = () => {
       onSubmit(submitData);
     };
 
+    // Helper function to format user display name
+    const formatUserDisplayName = (profile: any) => {
+      const name = profile.full_name || '无姓名';
+      const email = profile.email || '无邮箱';
+      const company = profile.company ? ` (${profile.company})` : '';
+      const createdDate = profile.created_at ? 
+        ` - 创建于${new Date(profile.created_at).toLocaleDateString()}` : '';
+      
+      return `${name} - ${email}${company}${createdDate}`;
+    };
+
     return (
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -206,16 +217,19 @@ const TenantMembersManagement = () => {
             id="user_id"
             value={formData.user_id}
             onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-            className="w-full border border-input bg-background px-3 py-2 rounded-md"
+            className="w-full border border-input bg-background px-3 py-2 rounded-md text-sm"
             required
           >
             <option value="">选择用户</option>
             {profiles?.map(profile => (
-              <option key={profile.id} value={profile.id}>
-                {profile.full_name || profile.email}
+              <option key={profile.id} value={profile.id} title={formatUserDisplayName(profile)}>
+                {formatUserDisplayName(profile)}
               </option>
             ))}
           </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            显示格式：姓名 - 邮箱 (公司) - 创建时间
+          </p>
         </div>
         <div>
           <Label htmlFor="role">角色</Label>
@@ -239,12 +253,12 @@ const TenantMembersManagement = () => {
             id="invited_by"
             value={formData.invited_by}
             onChange={(e) => setFormData({ ...formData, invited_by: e.target.value })}
-            className="w-full border border-input bg-background px-3 py-2 rounded-md"
+            className="w-full border border-input bg-background px-3 py-2 rounded-md text-sm"
           >
             <option value="">无邀请人</option>
             {profiles?.map(profile => (
-              <option key={profile.id} value={profile.id}>
-                {profile.full_name || profile.email}
+              <option key={profile.id} value={profile.id} title={formatUserDisplayName(profile)}>
+                {formatUserDisplayName(profile)}
               </option>
             ))}
           </select>
