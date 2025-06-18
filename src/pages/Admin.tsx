@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Building, Key, Shield, BarChart3, Settings, UserCheck } from "lucide-react";
+import { Users, Building, Key, Shield, BarChart3, Settings, UserCheck, Lock } from "lucide-react";
 import ProfilesManagement from "@/components/admin/ProfilesManagement";
 import TenantsManagement from "@/components/admin/TenantsManagement";
 import OAuthClientsManagement from "@/components/admin/OAuthClientsManagement";
@@ -10,6 +10,7 @@ import TenantMembersManagement from "@/components/admin/TenantMembersManagement"
 import PermissionsManagement from "@/components/admin/PermissionsManagement";
 import SystemSettings from "@/components/admin/SystemSettings";
 import UserDashboard from "@/components/admin/enhanced/UserDashboard";
+import JWTTokenManagement from "@/components/admin/JWTTokenManagement";
 
 const Admin = () => {
   return (
@@ -23,7 +24,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 h-auto p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 p-3">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">仪表板</span>
@@ -43,6 +44,11 @@ const Admin = () => {
               <UserCheck className="h-4 w-4" />
               <span className="hidden sm:inline">权限配置</span>
               <span className="sm:hidden">权限</span>
+            </TabsTrigger>
+            <TabsTrigger value="jwt" className="flex items-center gap-2 p-3">
+              <Lock className="h-4 w-4" />
+              <span className="hidden sm:inline">JWT管理</span>
+              <span className="sm:hidden">JWT</span>
             </TabsTrigger>
             <TabsTrigger value="oauth" className="flex items-center gap-2 p-3">
               <Key className="h-4 w-4" />
@@ -125,6 +131,23 @@ const Admin = () => {
               </CardHeader>
               <CardContent className="p-6">
                 <PermissionsManagement />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="jwt">
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5" />
+                  JWT Token 管理
+                </CardTitle>
+                <CardDescription>
+                  管理JWT密钥对、访问令牌和Token配置，为业务系统提供统一认证服务
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <JWTTokenManagement />
               </CardContent>
             </Card>
           </TabsContent>
