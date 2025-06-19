@@ -1,6 +1,6 @@
 
-// JWT 工具函数
-import { decode } from 'https://deno.land/std@0.208.0/encoding/base64url.ts'
+// JWT 工具函数 - 修正版
+// 将标准base64解码替换base64url解码
 
 export interface JWTHeader {
   alg: string;
@@ -20,6 +20,27 @@ export interface JWTPayload {
   tenant_id?: string;
 }
 
+// 标准 Base64 解码函数（用于 PEM 密钥）
+function decodeBase64(str: string): Uint8Array {
+  const binaryString = atob(str);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// Base64url 解码函数（用于 JWT 部分）
+function decodeBase64Url(str: string): Uint8Array {
+  // 将 base64url 转换为标准 base64
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  // 补充填充字符
+  while (base64.length % 4) {
+    base64 += '=';
+  }
+  return decodeBase64(base64);
+}
+
 // 生成 JWT Token
 export async function generateJWT(
   payload: JWTPayload,
@@ -27,48 +48,69 @@ export async function generateJWT(
   keyId: string,
   algorithm: string = 'RS256'
 ): Promise<string> {
-  const header: JWTHeader = {
-    alg: algorithm,
-    typ: 'JWT',
-    kid: keyId
-  };
+  try {
+    const header: JWTHeader = {
+      alg: algorithm,
+      typ: 'JWT',
+      kid: keyId
+    };
 
-  const encodedHeader = btoa(JSON.stringify(header)).replace(/[+/]/g, (c) => ({ '+': '-', '/': '_' }[c]!)).replace(/=/g, '');
-  const encodedPayload = btoa(JSON.stringify(payload)).replace(/[+/]/g, (c) => ({ '+': '-', '/': '_' }[c]!)).replace(/=/g, '');
-  
-  const data = `${encodedHeader}.${encodedPayload}`;
-  
-  // 导入私钥
-  const keyData = privateKey
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\s/g, '');
-  
-  const binaryKey = decode(keyData);
-  
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    binaryKey,
-    {
-      name: 'RSASSA-PKCS1-v1_5',
-      hash: 'SHA-256',
-    },
-    false,
-    ['sign']
-  );
+    // Base64Url 编码 header 和 payload
+    const encodedHeader = btoa(JSON.stringify(header))
+      .replace(/[+/]/g, (c) => ({ '+': '-', '/': '_' }[c]!))
+      .replace(/=/g, '');
+    
+    const encodedPayload = btoa(JSON.stringify(payload))
+      .replace(/[+/]/g, (c) => ({ '+': '-', '/': '_' }[c]!))
+      .replace(/=/g, '');
+    
+    const data = `${encodedHeader}.${encodedPayload}`;
+    
+    // 清理私钥格式并进行标准 Base64 解码
+    const keyData = privateKey
+      .replace(/-----BEGIN PRIVATE KEY-----/, '')
+      .replace(/-----END PRIVATE KEY-----/, '')
+      .replace(/\s/g, '');
+    
+    console.log('Private key length after cleanup:', keyData.length);
+    
+    // 使用标准 Base64 解码替代 base64url 解码
+    const binaryKey = decodeBase64(keyData);
+    
+    console.log('Decoded binary key length:', binaryKey.length);
+    
+    // 导入私钥
+    const cryptoKey = await crypto.subtle.importKey(
+      'pkcs8',
+      binaryKey,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256',
+      },
+      false,
+      ['sign']
+    );
 
-  // 签名
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    cryptoKey,
-    new TextEncoder().encode(data)
-  );
+    // 签名
+    const signature = await crypto.subtle.sign(
+      'RSASSA-PKCS1-v1_5',
+      cryptoKey,
+      new TextEncoder().encode(data)
+    );
 
-  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/[+/]/g, (c) => ({ '+': '-', '/': '_' }[c]!))
-    .replace(/=/g, '');
+    // Base64Url 编码签名
+    const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+      .replace(/[+/]/g, (c) => ({ '+': '-', '/': '_' }[c]!))
+      .replace(/=/g, '');
 
-  return `${data}.${encodedSignature}`;
+    const jwt = `${data}.${encodedSignature}`;
+    console.log('Generated JWT successfully');
+    
+    return jwt;
+  } catch (error) {
+    console.error('JWT generation error:', error);
+    throw error;
+  }
 }
 
 // 验证 JWT Token
@@ -86,13 +128,16 @@ export async function verifyJWT(
     const [encodedHeader, encodedPayload, encodedSignature] = parts;
     
     // 验证 header
-    const header = JSON.parse(atob(encodedHeader.replace(/[-_]/g, (c) => ({ '-': '+', '_': '/' }[c]!))));
+    const headerPadded = encodedHeader + '='.repeat((4 - encodedHeader.length % 4) % 4);
+    const header = JSON.parse(atob(headerPadded.replace(/[-_]/g, (c) => ({ '-': '+', '_': '/' }[c]!))));
+    
     if (header.alg !== algorithm) {
       return { valid: false, error: 'Algorithm mismatch' };
     }
 
     // 解析 payload
-    const payload = JSON.parse(atob(encodedPayload.replace(/[-_]/g, (c) => ({ '-': '+', '_': '/' }[c]!))));
+    const payloadPadded = encodedPayload + '='.repeat((4 - encodedPayload.length % 4) % 4);
+    const payload = JSON.parse(atob(payloadPadded.replace(/[-_]/g, (c) => ({ '-': '+', '_': '/' }[c]!))));
     
     // 检查过期时间
     if (payload.exp && payload.exp < Date.now() / 1000) {
@@ -101,19 +146,21 @@ export async function verifyJWT(
 
     // 验证签名
     const data = `${encodedHeader}.${encodedPayload}`;
+    const signaturePadded = encodedSignature + '='.repeat((4 - encodedSignature.length % 4) % 4);
     const signature = new Uint8Array(
-      atob(encodedSignature.replace(/[-_]/g, (c) => ({ '-': '+', '_': '/' }[c]!)))
+      atob(signaturePadded.replace(/[-_]/g, (c) => ({ '-': '+', '_': '/' }[c]!)))
         .split('')
         .map(c => c.charCodeAt(0))
     );
 
-    // 导入公钥
+    // 清理公钥格式
     const keyData = publicKey
       .replace(/-----BEGIN PUBLIC KEY-----/, '')
       .replace(/-----END PUBLIC KEY-----/, '')
       .replace(/\s/g, '');
     
-    const binaryKey = decode(keyData);
+    // 使用标准 Base64 解码
+    const binaryKey = decodeBase64(keyData);
     
     const cryptoKey = await crypto.subtle.importKey(
       'spki',
@@ -139,6 +186,7 @@ export async function verifyJWT(
       error: isValid ? undefined : 'Invalid signature'
     };
   } catch (error) {
+    console.error('JWT verification error:', error);
     return { valid: false, error: `Verification failed: ${error.message}` };
   }
 }
