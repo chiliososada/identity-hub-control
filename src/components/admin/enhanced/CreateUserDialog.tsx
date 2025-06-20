@@ -28,61 +28,33 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
         throw new Error('メールアドレスが必要です');
       }
 
-      // 使用 Supabase Auth Admin API 创建用户
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-        email: profileData.email,
-        email_confirm: true, // 自动确认邮箱
-        user_metadata: {
+      // 调用新的 Edge Function
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: profileData.email,
           full_name: profileData.full_name || null,
           first_name: profileData.first_name || null,
           last_name: profileData.last_name || null,
+          role: profileData.role || 'member',
+          company: profileData.company || null,
+          job_title: profileData.job_title || null,
+          is_active: profileData.is_active ?? true,
+          is_company_admin: profileData.is_company_admin ?? false,
+          is_test_account: profileData.is_test_account ?? false,
         }
       });
 
-      if (authError) {
-        console.error('Auth user creation error:', authError);
-        throw new Error(`認証ユーザーの作成に失敗しました: ${authError.message}`);
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'ユーザー作成時にエラーが発生しました');
       }
 
-      if (!authUser.user) {
-        throw new Error('認証ユーザーの作成に失敗しました');
+      if (!data.success) {
+        throw new Error(data.error || 'ユーザー作成に失敗しました');
       }
 
-      console.log('Auth user created successfully:', authUser.user);
-
-      // 由于我们有触发器，profiles 记录会自动创建
-      // 但我们需要更新额外的字段
-      const updateData = {
-        full_name: profileData.full_name || null,
-        first_name: profileData.first_name || null,
-        last_name: profileData.last_name || null,
-        role: profileData.role || 'member',
-        company: profileData.company || null,
-        job_title: profileData.job_title || null,
-        is_active: profileData.is_active ?? true,
-        is_company_admin: profileData.is_company_admin ?? false,
-        is_test_account: profileData.is_test_account ?? false,
-      };
-
-      // 等待触发器创建 profile 记录，然后更新它
-      // 使用短暂延迟确保触发器完成
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const { data: updatedProfile, error: updateError } = await supabase
-        .from('profiles')
-        .update(updateData)
-        .eq('auth_user_id', authUser.user.id)
-        .select()
-        .single();
-
-      if (updateError) {
-        console.error('Profile update error:', updateError);
-        // 不抛出错误，因为用户已经创建成功
-        console.warn('プロフィールの更新に失敗しましたが、ユーザーは作成されました');
-      }
-
-      console.log('User creation completed:', updatedProfile || authUser.user);
-      return updatedProfile || { ...authUser.user, ...updateData };
+      console.log('User creation completed:', data.user);
+      return data.user;
     },
     onSuccess: (data) => {
       console.log('User creation mutation success:', data);
