@@ -21,17 +21,22 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: async (profileData: Partial<Profile>) => {
-      console.log('Creating user with data:', profileData);
+    mutationFn: async (profileData: Partial<Profile & { password: string }>) => {
+      console.log('Creating user with data:', { ...profileData, password: '***' });
       
       if (!profileData.email) {
-        throw new Error('メールアドレスが必要です');
+        throw new Error('邮箱地址是必填项');
+      }
+
+      if (!profileData.password) {
+        throw new Error('密码是必填项');
       }
 
       // 调用新的 Edge Function
       const { data, error } = await supabase.functions.invoke('admin-create-user', {
         body: {
           email: profileData.email,
+          password: profileData.password,
           full_name: profileData.full_name || null,
           first_name: profileData.first_name || null,
           last_name: profileData.last_name || null,
@@ -69,7 +74,7 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
       const accountType = data.is_test_account ? 'テストアカウント' : 'ユーザー';
       toast({ 
         title: "ユーザー作成成功", 
-        description: `${accountType} ${data.full_name || data.email} がシステムに正常に追加されました` 
+        description: `${accountType} ${data.full_name || data.email} がシステムに正常に追加されました。新用户现在可以使用设置的密码登录。` 
       });
     },
     onError: (error: any) => {
@@ -93,11 +98,11 @@ const CreateUserDialog = ({ onUserCreated }: CreateUserDialogProps) => {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>新しいユーザーを作成</DialogTitle>
-          <DialogDescription>ユーザーの基本情報を入力して新しいユーザーアカウントを作成してください。「テストアカウント」をチェックするとテストユーザーを作成できます。</DialogDescription>
+          <DialogDescription>ユーザーの基本情報と密码を入力して新しいユーザーアカウントを作成してください。「テストアカウント」をチェックするとテストユーザーを作成できます。</DialogDescription>
         </DialogHeader>
         <ProfileForm
           onSubmit={(data) => {
-            console.log('ProfileForm submitted data:', data);
+            console.log('ProfileForm submitted data:', { ...data, password: '***' });
             createMutation.mutate(data);
           }}
           buttonText="ユーザーを作成"

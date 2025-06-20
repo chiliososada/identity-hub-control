@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tables } from '@/integrations/supabase/types';
+import { Eye, EyeOff } from 'lucide-react';
 
 type Profile = Tables<'profiles'>;
 
@@ -19,6 +20,7 @@ interface ProfileFormProps {
 export const ProfileForm = ({ profile, onSubmit, buttonText, isLoading }: ProfileFormProps) => {
   const [formData, setFormData] = useState({
     email: profile?.email || '',
+    password: '',
     full_name: profile?.full_name || '',
     first_name: profile?.first_name || '',
     last_name: profile?.last_name || '',
@@ -31,6 +33,7 @@ export const ProfileForm = ({ profile, onSubmit, buttonText, isLoading }: Profil
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -39,6 +42,13 @@ export const ProfileForm = ({ profile, onSubmit, buttonText, isLoading }: Profil
       newErrors.email = '邮箱是必填项';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = '请输入有效的邮箱地址';
+    }
+    
+    // 只在创建新用户时验证密码（没有profile时）
+    if (!profile && !formData.password) {
+      newErrors.password = '密码是必填项';
+    } else if (!profile && formData.password && formData.password.length < 6) {
+      newErrors.password = '密码至少需要6个字符';
     }
     
     if (!formData.full_name && !formData.first_name && !formData.last_name) {
@@ -71,6 +81,31 @@ export const ProfileForm = ({ profile, onSubmit, buttonText, isLoading }: Profil
           />
           {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
         </div>
+
+        {/* 只在创建新用户时显示密码字段 */}
+        {!profile && (
+          <div className="md:col-span-2">
+            <Label htmlFor="password">密码 *</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
+                placeholder="请输入密码（至少6个字符）"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password}</p>}
+          </div>
+        )}
         
         <div>
           <Label htmlFor="full_name">全名</Label>

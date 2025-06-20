@@ -45,9 +45,9 @@ serve(async (req) => {
 
     // 解析请求体
     const requestBody = await req.json()
-    const { email, full_name, first_name, last_name, role, company, job_title, is_active, is_company_admin, is_test_account } = requestBody
+    const { email, password, full_name, first_name, last_name, role, company, job_title, is_active, is_company_admin, is_test_account } = requestBody
 
-    console.log('Creating user with data:', requestBody)
+    console.log('Creating user with data:', { ...requestBody, password: '***' })
 
     if (!email) {
       return new Response(
@@ -59,9 +59,30 @@ serve(async (req) => {
       )
     }
 
-    // 使用 Admin API 创建用户
+    if (!password) {
+      return new Response(
+        JSON.stringify({ error: '密码是必填项' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    if (password.length < 6) {
+      return new Response(
+        JSON.stringify({ error: '密码至少需要6个字符' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // 使用 Admin API 创建用户，包含密码
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
+      password,
       email_confirm: true,
       user_metadata: {
         full_name: full_name || null,
@@ -73,7 +94,7 @@ serve(async (req) => {
     if (authError) {
       console.error('Auth user creation error:', authError)
       return new Response(
-        JSON.stringify({ error: `認証ユーザーの作成に失敗しました: ${authError.message}` }),
+        JSON.stringify({ error: `认证ユーザーの作成に失敗しました: ${authError.message}` }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -83,7 +104,7 @@ serve(async (req) => {
 
     if (!authUser.user) {
       return new Response(
-        JSON.stringify({ error: '認証ユーザーの作成に失敗しました' }),
+        JSON.stringify({ error: '认证ユーザーの作成に失敗しました' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
