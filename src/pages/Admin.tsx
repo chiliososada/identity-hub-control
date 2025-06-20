@@ -1,16 +1,14 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Building, Key, Shield, BarChart3, Settings, UserCheck, Lock } from "lucide-react";
+import { Users, Building, Shield, BarChart3, Settings, UserCheck } from "lucide-react";
 import ProfilesManagement from "@/components/admin/ProfilesManagement";
 import TenantsManagement from "@/components/admin/TenantsManagement";
-import OAuthClientsManagement from "@/components/admin/OAuthClientsManagement";
 import TenantMembersManagement from "@/components/admin/TenantMembersManagement";
 import PermissionsManagement from "@/components/admin/PermissionsManagement";
 import SystemSettings from "@/components/admin/SystemSettings";
 import UserDashboard from "@/components/admin/enhanced/UserDashboard";
-import JWTTokenManagement from "@/components/admin/JWTTokenManagement";
 
 const Admin = () => {
   return (
@@ -20,50 +18,34 @@ const Admin = () => {
           <h1 className="text-3xl md:text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             多租户认证管理平台
           </h1>
-          <p className="text-muted-foreground text-lg">全面管理用户账户、租户组织、权限配置和系统设置</p>
+          <p className="text-muted-foreground text-lg">基于Supabase Auth的简化认证管理系统</p>
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto p-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 p-3">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">仪表板</span>
-              <span className="sm:hidden">仪表板</span>
             </TabsTrigger>
             <TabsTrigger value="profiles" className="flex items-center gap-2 p-3">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">用户管理</span>
-              <span className="sm:hidden">用户</span>
             </TabsTrigger>
             <TabsTrigger value="tenants" className="flex items-center gap-2 p-3">
               <Building className="h-4 w-4" />
               <span className="hidden sm:inline">租户管理</span>
-              <span className="sm:hidden">租户</span>
             </TabsTrigger>
             <TabsTrigger value="permissions" className="flex items-center gap-2 p-3">
               <UserCheck className="h-4 w-4" />
               <span className="hidden sm:inline">权限配置</span>
-              <span className="sm:hidden">权限</span>
-            </TabsTrigger>
-            <TabsTrigger value="jwt" className="flex items-center gap-2 p-3">
-              <Lock className="h-4 w-4" />
-              <span className="hidden sm:inline">JWT管理</span>
-              <span className="sm:hidden">JWT</span>
-            </TabsTrigger>
-            <TabsTrigger value="oauth" className="flex items-center gap-2 p-3">
-              <Key className="h-4 w-4" />
-              <span className="hidden sm:inline">OAuth客户端</span>
-              <span className="sm:hidden">OAuth</span>
             </TabsTrigger>
             <TabsTrigger value="members" className="flex items-center gap-2 p-3">
               <Shield className="h-4 w-4" />
               <span className="hidden sm:inline">成员管理</span>
-              <span className="sm:hidden">成员</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2 p-3">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">系统设置</span>
-              <span className="sm:hidden">设置</span>
             </TabsTrigger>
           </TabsList>
 
@@ -131,40 +113,6 @@ const Admin = () => {
               </CardHeader>
               <CardContent className="p-6">
                 <PermissionsManagement />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="jwt">
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
-                <CardTitle className="flex items-center gap-2">
-                  <Lock className="h-5 w-5" />
-                  JWT Token 管理
-                </CardTitle>
-                <CardDescription>
-                  管理JWT密钥对、访问令牌和Token配置，为业务系统提供统一认证服务
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                <JWTTokenManagement />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="oauth">
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20">
-                <CardTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
-                  OAuth客户端管理
-                </CardTitle>
-                <CardDescription>
-                  管理OAuth认证客户端配置，设置应用权限和回调地址
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                <OAuthClientsManagement />
               </CardContent>
             </Card>
           </TabsContent>

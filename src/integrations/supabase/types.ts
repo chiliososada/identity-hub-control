@@ -69,248 +69,9 @@ export type Database = {
           },
         ]
       }
-      auth_attempts: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          failure_reason: string | null
-          id: string
-          ip_address: unknown | null
-          success: boolean | null
-          user_agent: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          failure_reason?: string | null
-          id?: string
-          ip_address?: unknown | null
-          success?: boolean | null
-          user_agent?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          failure_reason?: string | null
-          id?: string
-          ip_address?: unknown | null
-          success?: boolean | null
-          user_agent?: string | null
-        }
-        Relationships: []
-      }
-      auth_tokens: {
-        Row: {
-          created_at: string | null
-          device_fingerprint: string | null
-          device_name: string | null
-          expires_at: string
-          id: string
-          ip_address: unknown | null
-          is_revoked: boolean | null
-          last_used_at: string | null
-          revoked_at: string | null
-          revoked_reason: string | null
-          tenant_id: string
-          token_id: string
-          token_type: string
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          device_fingerprint?: string | null
-          device_name?: string | null
-          expires_at: string
-          id?: string
-          ip_address?: unknown | null
-          is_revoked?: boolean | null
-          last_used_at?: string | null
-          revoked_at?: string | null
-          revoked_reason?: string | null
-          tenant_id: string
-          token_id: string
-          token_type?: string
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          device_fingerprint?: string | null
-          device_name?: string | null
-          expires_at?: string
-          id?: string
-          ip_address?: unknown | null
-          is_revoked?: boolean | null
-          last_used_at?: string | null
-          revoked_at?: string | null
-          revoked_reason?: string | null
-          tenant_id?: string
-          token_id?: string
-          token_type?: string
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "auth_tokens_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "auth_tokens_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      jwt_keys: {
-        Row: {
-          algorithm: string
-          created_at: string | null
-          created_by: string | null
-          description: string | null
-          expires_at: string | null
-          id: string
-          is_active: boolean | null
-          is_primary: boolean | null
-          key_format: string | null
-          key_id: string
-          key_name: string
-          key_size: number | null
-          last_used_at: string | null
-          private_key: string
-          public_key: string
-          usage_count: number | null
-        }
-        Insert: {
-          algorithm?: string
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_primary?: boolean | null
-          key_format?: string | null
-          key_id: string
-          key_name: string
-          key_size?: number | null
-          last_used_at?: string | null
-          private_key: string
-          public_key: string
-          usage_count?: number | null
-        }
-        Update: {
-          algorithm?: string
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_primary?: boolean | null
-          key_format?: string | null
-          key_id?: string
-          key_name?: string
-          key_size?: number | null
-          last_used_at?: string | null
-          private_key?: string
-          public_key?: string
-          usage_count?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "jwt_keys_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      oauth_clients: {
-        Row: {
-          client_id: string
-          client_name: string
-          client_secret: string
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          redirect_uris: string[] | null
-          scopes: string[] | null
-          tenant_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          client_id: string
-          client_name: string
-          client_secret: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          redirect_uris?: string[] | null
-          scopes?: string[] | null
-          tenant_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          client_id?: string
-          client_name?: string
-          client_secret?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          redirect_uris?: string[] | null
-          scopes?: string[] | null
-          tenant_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "oauth_clients_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      password_history: {
-        Row: {
-          created_at: string | null
-          id: string
-          password_hash: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          password_hash: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          password_hash?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "password_history_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
+          auth_user_id: string | null
           avatar_url: string | null
           company: string | null
           created_at: string
@@ -323,23 +84,16 @@ export type Database = {
           is_company_admin: boolean | null
           is_test_account: boolean | null
           job_title: string | null
-          last_ip_address: unknown | null
           last_login_at: string | null
           last_name: string | null
-          locked_until: string | null
-          login_attempts: number | null
-          password_hash: string | null
-          password_salt: string | null
-          password_updated_at: string | null
           permissions: Json | null
           position: string | null
-          reset_token: string | null
-          reset_token_expires_at: string | null
           role: string
           tenant_id: string | null
           updated_at: string
         }
         Insert: {
+          auth_user_id?: string | null
           avatar_url?: string | null
           company?: string | null
           created_at?: string
@@ -352,23 +106,16 @@ export type Database = {
           is_company_admin?: boolean | null
           is_test_account?: boolean | null
           job_title?: string | null
-          last_ip_address?: unknown | null
           last_login_at?: string | null
           last_name?: string | null
-          locked_until?: string | null
-          login_attempts?: number | null
-          password_hash?: string | null
-          password_salt?: string | null
-          password_updated_at?: string | null
           permissions?: Json | null
           position?: string | null
-          reset_token?: string | null
-          reset_token_expires_at?: string | null
           role?: string
           tenant_id?: string | null
           updated_at?: string
         }
         Update: {
+          auth_user_id?: string | null
           avatar_url?: string | null
           company?: string | null
           created_at?: string
@@ -381,18 +128,10 @@ export type Database = {
           is_company_admin?: boolean | null
           is_test_account?: boolean | null
           job_title?: string | null
-          last_ip_address?: unknown | null
           last_login_at?: string | null
           last_name?: string | null
-          locked_until?: string | null
-          login_attempts?: number | null
-          password_hash?: string | null
-          password_salt?: string | null
-          password_updated_at?: string | null
           permissions?: Json | null
           position?: string | null
-          reset_token?: string | null
-          reset_token_expires_at?: string | null
           role?: string
           tenant_id?: string | null
           updated_at?: string
@@ -571,14 +310,6 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
-      }
-      hash_password: {
-        Args: { password: string; salt?: string }
-        Returns: string
-      }
-      verify_password: {
-        Args: { password: string; stored_hash: string }
-        Returns: boolean
       }
     }
     Enums: {

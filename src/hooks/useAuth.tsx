@@ -1,213 +1,208 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-interface User {
+interface UserProfile {
   id: string;
+  auth_user_id: string;
   email: string;
   full_name?: string;
   first_name?: string;
   last_name?: string;
   role: string;
   avatar_url?: string;
+  tenant_id?: string;
+  is_active: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
+  profile: UserProfile | null;
+  session: Session | null;
   isLoading: boolean;
-  login: (email: string, password: string, deviceName?: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => Promise<void>;
-  refreshToken: () => Promise<{ success: boolean; error?: string }>;
-  verifyToken: () => Promise<{ valid: boolean; error?: string }>;
+  signUp: (email: string, password: string, userData?: any) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 登录功能
-  const login = async (email: string, password: string, deviceName?: string) => {
+  // 获取用户档案
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('auth_user_id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+
+      return data as UserProfile;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      return null;
+    }
+  };
+
+  // 刷新用户档案
+  const refreshProfile = async () => {
+    if (user) {
+      const profileData = await fetchProfile(user.id);
+      setProfile(profileData);
+    }
+  };
+
+  // 注册功能
+  const signUp = async (email: string, password: string, userData?: any) => {
     try {
       setIsLoading(true);
       
-      const { data, error } = await supabase.functions.invoke('auth-login', {
-        body: {
-          email,
-          password,
-          device_name: deviceName || 'Web Browser'
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: userData
         }
       });
 
       if (error) {
-        console.error('Login error:', error);
-        return { success: false, error: 'Login failed' };
+        console.error('Sign up error:', error);
+        return { success: false, error: error.message };
       }
 
-      if (data?.error) {
-        return { success: false, error: data.error };
+      if (data.user && !data.session) {
+        toast({
+          title: "注册成功",
+          description: "请检查您的邮箱以验证账户"
+        });
       }
 
-      // 保存token和用户信息
-      const accessToken = data.access_token;
-      setToken(accessToken);
-      setUser(data.user);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 登录功能
+  const signIn = async (email: string, password: string) => {
+    try {
+      setIsLoading(true);
       
-      // 保存到localStorage
-      localStorage.setItem('auth_token', accessToken);
-      localStorage.setItem('user_data', JSON.stringify(data.user));
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('Sign in error:', error);
+        return { success: false, error: error.message };
+      }
 
       toast({
         title: "登录成功",
-        description: `欢迎回来，${data.user.full_name || data.user.email}！`
+        description: `欢迎回来！`
       });
 
       return { success: true };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: '登录失败，请重试' };
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      return { success: false, error: error.message };
     } finally {
       setIsLoading(false);
     }
   };
 
   // 登出功能
-  const logout = async () => {
+  const signOut = async () => {
     try {
-      if (token) {
-        // 调用撤销token接口
-        await supabase.functions.invoke('auth-revoke', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          },
-          body: {
-            all_tokens: false,
-            reason: 'User logout'
-          }
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Sign out error:', error);
+        toast({
+          title: "登出失败",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "已登出",
+          description: "您已安全登出系统"
         });
       }
     } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // 清除本地数据
-      setUser(null);
-      setToken(null);
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user_data');
-      
-      toast({
-        title: "已登出",
-        description: "您已安全登出系统"
-      });
+      console.error('Sign out error:', error);
     }
   };
 
-  // 刷新token
-  const refreshToken = async () => {
-    try {
-      if (!token) return { success: false, error: 'No token to refresh' };
-
-      const { data, error } = await supabase.functions.invoke('auth-refresh', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (error || data?.error) {
-        console.error('Refresh token error:', error || data?.error);
-        await logout(); // Token无效，登出用户
-        return { success: false, error: 'Token refresh failed' };
-      }
-
-      // 更新token和用户信息
-      const newToken = data.access_token;
-      setToken(newToken);
-      setUser(data.user);
-      
-      localStorage.setItem('auth_token', newToken);
-      localStorage.setItem('user_data', JSON.stringify(data.user));
-
-      return { success: true };
-    } catch (error) {
-      console.error('Refresh token error:', error);
-      await logout();
-      return { success: false, error: 'Token refresh failed' };
-    }
-  };
-
-  // 验证token
-  const verifyToken = async () => {
-    try {
-      if (!token) return { valid: false, error: 'No token' };
-
-      const { data, error } = await supabase.functions.invoke('auth-verify', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (error || data?.error || !data?.valid) {
-        return { valid: false, error: data?.error || 'Token invalid' };
-      }
-
-      return { valid: true };
-    } catch (error) {
-      console.error('Verify token error:', error);
-      return { valid: false, error: 'Verification failed' };
-    }
-  };
-
-  // 初始化时检查本地存储的token
+  // 设置认证状态监听器
   useEffect(() => {
-    const initAuth = async () => {
-      const storedToken = localStorage.getItem('auth_token');
-      const storedUser = localStorage.getItem('user_data');
-
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-
-        // 验证token是否仍然有效
-        const { valid } = await verifyToken();
-        if (!valid) {
-          // Token无效，清除本地数据
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user_data');
-          setToken(null);
-          setUser(null);
+    // 设置认证状态监听器
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // 延迟获取用户档案，避免递归调用
+          setTimeout(async () => {
+            const profileData = await fetchProfile(session.user.id);
+            setProfile(profileData);
+          }, 0);
+        } else {
+          setProfile(null);
         }
+        
+        setIsLoading(false);
+      }
+    );
+
+    // 检查现有会话
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        setTimeout(async () => {
+          const profileData = await fetchProfile(session.user.id);
+          setProfile(profileData);
+        }, 0);
       }
       
       setIsLoading(false);
-    };
+    });
 
-    initAuth();
+    return () => subscription.unsubscribe();
   }, []);
-
-  // 定期刷新token（每7小时）
-  useEffect(() => {
-    if (!token) return;
-
-    const interval = setInterval(async () => {
-      await refreshToken();
-    }, 7 * 60 * 60 * 1000); // 7小时
-
-    return () => clearInterval(interval);
-  }, [token]);
 
   return (
     <AuthContext.Provider value={{
       user,
-      token,
+      profile,
+      session,
       isLoading,
-      login,
-      logout,
-      refreshToken,
-      verifyToken
+      signUp,
+      signIn,
+      signOut,
+      refreshProfile
     }}>
       {children}
     </AuthContext.Provider>

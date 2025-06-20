@@ -1,35 +1,16 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useApiCall } from '@/hooks/useApiCall';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { UserProfile } from '@/components/auth/UserProfile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Database, Shield, Users } from 'lucide-react';
+import { Users, Shield, Settings } from 'lucide-react';
 
 export default function AuthDemo() {
-  const { user, token } = useAuth();
-  const { getUserInfo, revokeToken, revokeAllTokens } = useApiCall();
-  const [apiResult, setApiResult] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleGetUserInfo = async () => {
-    setIsLoading(true);
-    const result = await getUserInfo();
-    setApiResult(result);
-    setIsLoading(false);
-  };
-
-  const handleRevokeToken = async () => {
-    await revokeToken();
-  };
-
-  const handleRevokeAllTokens = async () => {
-    await revokeAllTokens();
-  };
+  const { user, profile, signOut } = useAuth();
 
   if (!user) {
     return (
@@ -38,7 +19,7 @@ export default function AuthDemo() {
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-4">身份验证演示</h1>
             <p className="text-xl text-muted-foreground">
-              展示完整的JWT身份验证系统功能
+              展示简化的Supabase身份验证系统功能
             </p>
           </div>
           <LoginForm />
@@ -53,27 +34,23 @@ export default function AuthDemo() {
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4">身份验证演示</h1>
           <p className="text-xl text-muted-foreground">
-            欢迎使用JWT身份验证系统
+            欢迎使用简化的身份验证系统
           </p>
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="profile">
               <Users className="mr-2 h-4 w-4" />
               用户信息
-            </TabsTrigger>
-            <TabsTrigger value="api">
-              <Database className="mr-2 h-4 w-4" />
-              API调用
             </TabsTrigger>
             <TabsTrigger value="security">
               <Shield className="mr-2 h-4 w-4" />
               安全操作
             </TabsTrigger>
-            <TabsTrigger value="token">
-              <Code className="mr-2 h-4 w-4" />
-              Token信息
+            <TabsTrigger value="settings">
+              <Settings className="mr-2 h-4 w-4" />
+              系统设置
             </TabsTrigger>
           </TabsList>
 
@@ -91,41 +68,16 @@ export default function AuthDemo() {
                     <Badge variant="default">已认证</Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>Token类型:</span>
-                    <Badge variant="secondary">JWT</Badge>
+                    <span>认证方式:</span>
+                    <Badge variant="secondary">Supabase Auth</Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>会话状态:</span>
-                    <Badge variant="default">活跃</Badge>
+                    <span>用户角色:</span>
+                    <Badge variant="outline">{profile?.role || 'member'}</Badge>
                   </div>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          <TabsContent value="api" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>API调用测试</CardTitle>
-                <CardDescription>测试各种需要认证的API接口</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Button onClick={handleGetUserInfo} disabled={isLoading}>
-                    获取用户详细信息
-                  </Button>
-                </div>
-                
-                {apiResult && (
-                  <div className="mt-4">
-                    <h4 className="font-semibold mb-2">API响应:</h4>
-                    <pre className="bg-muted p-4 rounded-md overflow-auto text-sm">
-                      {JSON.stringify(apiResult, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="security" className="space-y-4">
@@ -136,38 +88,38 @@ export default function AuthDemo() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
-                  <Button variant="outline" onClick={handleRevokeToken}>
-                    撤销当前Token
-                  </Button>
-                  <Button variant="destructive" onClick={handleRevokeAllTokens}>
-                    撤销所有Token
+                  <Button variant="destructive" onClick={signOut}>
+                    退出登录
                   </Button>
                 </div>
                 
                 <div className="text-sm text-muted-foreground">
-                  <p>• 撤销当前Token会使当前会话失效</p>
-                  <p>• 撤销所有Token会使所有设备上的会话失效</p>
+                  <p>• 退出登录将结束您的当前会话</p>
+                  <p>• 您需要重新登录才能访问受保护的内容</p>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="token" className="space-y-4">
+          <TabsContent value="settings" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Token信息</CardTitle>
-                <CardDescription>当前JWT Token的详细信息</CardDescription>
+                <CardTitle>用户信息</CardTitle>
+                <CardDescription>您的账户基本信息</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   <div>
-                    <strong>Token长度:</strong> {token?.length} 字符
+                    <strong>用户ID:</strong> {user.id}
                   </div>
                   <div>
-                    <strong>Token前缀:</strong> {token?.substring(0, 50)}...
+                    <strong>邮箱:</strong> {user.email}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-4">
-                    <p>此Token包含您的身份信息和权限，请妥善保管</p>
+                  <div>
+                    <strong>注册时间:</strong> {new Date(user.created_at).toLocaleString()}
+                  </div>
+                  <div>
+                    <strong>角色:</strong> {profile?.role || 'member'}
                   </div>
                 </div>
               </CardContent>

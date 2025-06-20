@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Edit, Search } from 'lucide-react';
+import { Edit, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +15,6 @@ import { ProfileForm } from './forms/ProfileForm';
 type Profile = Tables<'profiles'>;
 
 const ProfilesManagement = () => {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
@@ -36,27 +35,6 @@ const ProfilesManagement = () => {
       const { data, error } = await query;
       if (error) throw error;
       return data;
-    },
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (profileData: Partial<Profile>) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert([profileData])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] });
-      setIsCreateOpen(false);
-      toast({ title: "用户档案创建成功", description: "新用户已成功添加到系统中" });
-    },
-    onError: (error: any) => {
-      toast({ title: "创建失败", description: error.message, variant: "destructive" });
     },
   });
 
@@ -133,26 +111,6 @@ const ProfilesManagement = () => {
               className="pl-10 w-full sm:w-64"
             />
           </div>
-          
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
-                添加用户
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>创建新用户档案</DialogTitle>
-                <DialogDescription>填写用户基本信息来创建新的用户账户</DialogDescription>
-              </DialogHeader>
-              <ProfileForm
-                onSubmit={(data) => createMutation.mutate(data)}
-                buttonText="创建用户"
-                isLoading={createMutation.isPending}
-              />
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
@@ -162,7 +120,7 @@ const ProfilesManagement = () => {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="text-center">
                 <p className="text-lg font-medium">暂无用户数据</p>
-                <p className="text-sm text-muted-foreground mt-1">点击上方按钮创建第一个用户</p>
+                <p className="text-sm text-muted-foreground mt-1">用户通过Supabase Auth注册后将自动出现在这里</p>
               </div>
             </CardContent>
           </Card>
