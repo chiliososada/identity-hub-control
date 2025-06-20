@@ -1,7 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import { verifyJWT } from '../_shared/jwt-utils.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -34,105 +33,43 @@ Deno.serve(async (req) => {
     const token = authHeader.substring(7)
     console.log('Getting user info for token:', token.substring(0, 20) + '...')
 
-    // 首先尝试作为 JWT 验证
-    let jwtPayload = null
-    let tokenRecord = null
+    // 使用 Supabase Auth 验证 token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
-    // 获取所有活跃的 JWT 密钥来验证 token
-    const { data: jwtKeys, error: keysError } = await supabase
-      .from('jwt_keys')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-
-    if (!keysError && jwtKeys && jwtKeys.length > 0) {
-      // 尝试用每个密钥验证 JWT
-      for (const key of jwtKeys) {
-        try {
-          const verificationResult = await verifyJWT(token, key.public_key, key.algorithm)
-          if (verificationResult.valid && verificationResult.payload) {
-            jwtPayload = verificationResult.payload
-            break
-          }
-        } catch (error) {
-          console.log(`Failed to verify with key ${key.key_id}:`, error.message)
-          continue
-        }
-      }
-    }
-
-    // 查找token记录
-    const tokenQuery = jwtPayload ? 
-      supabase.from('auth_tokens').select(`
-        *,
-        profiles!auth_tokens_user_id_fkey (
-          id,
-          email,
-          full_name,
-          first_name,
-          last_name,
-          avatar_url,
-          company,
-          job_title,
-          role,
-          permissions,
-          is_active,
-          last_login_at
-        ),
-        tenants!auth_tokens_tenant_id_fkey (
-          id,
-          name,
-          domain,
-          subscription_plan,
-          is_active
-        )
-      `).eq('token_id', jwtPayload.jti) :
-      supabase.from('auth_tokens').select(`
-        *,
-        profiles!auth_tokens_user_id_fkey (
-          id,
-          email,
-          full_name,
-          first_name,
-          last_name,
-          avatar_url,
-          company,
-          job_title,
-          role,
-          permissions,
-          is_active,
-          last_login_at
-        ),
-        tenants!auth_tokens_tenant_id_fkey (
-          id,
-          name,
-          domain,
-          subscription_plan,
-          is_active
-        )
-      `).eq('token_id', token)
-
-    const { data: authToken, error: tokenError } = await tokenQuery
-      .eq('is_revoked', false)
-      .single()
-
-    if (tokenError || !authToken) {
+    if (authError || !user) {
+      console.error('Token verification failed:', authError)
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // 检查token是否过期
-    if (new Date(authToken.expires_at) < new Date()) {
+    // 获取用户档案信息
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        tenants!profiles_tenant_id_fkey (
+          id,
+          name,
+          domain,
+          subscription_plan,
+          is_active
+        )
+      `)
+      .eq('auth_user_id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      console.error('Failed to fetch profile:', profileError)
       return new Response(
-        JSON.stringify({ error: 'Token has expired' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'User profile not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // 检查用户是否激活
-    if (!authToken.profiles?.is_active) {
+    if (!profile.is_active) {
       return new Response(
         JSON.stringify({ error: 'User account is inactive' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -151,37 +88,31 @@ Deno.serve(async (req) => {
           name
         )
       `)
-      .eq('user_id', authToken.user_id)
+      .eq('user_id', profile.id)
       .eq('is_active', true)
 
-    // 更新最后使用时间
-    await supabase
-      .from('auth_tokens')
-      .update({ last_used_at: new Date().toISOString() })
-      .eq('id', authToken.id)
-
-    console.log('User info retrieved successfully for user:', authToken.user_id)
+    console.log('User info retrieved successfully for user:', profile.id)
 
     return new Response(
       JSON.stringify({
         user: {
-          id: authToken.profiles.id,
-          email: authToken.profiles.email,
-          full_name: authToken.profiles.full_name,
-          first_name: authToken.profiles.first_name,
-          last_name: authToken.profiles.last_name,
-          avatar_url: authToken.profiles.avatar_url,
-          company: authToken.profiles.company,
-          job_title: authToken.profiles.job_title,
-          role: authToken.profiles.role,
-          permissions: authToken.profiles.permissions,
-          last_login_at: authToken.profiles.last_login_at
+          id: profile.id,
+          email: profile.email,
+          full_name: profile.full_name,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          avatar_url: profile.avatar_url,
+          company: profile.company,
+          job_title: profile.job_title,
+          role: profile.role,
+          permissions: profile.permissions,
+          last_login_at: profile.last_login_at
         },
-        tenant: authToken.tenants ? {
-          id: authToken.tenants.id,
-          name: authToken.tenants.name,
-          domain: authToken.tenants.domain,
-          subscription_plan: authToken.tenants.subscription_plan
+        tenant: profile.tenants ? {
+          id: profile.tenants.id,
+          name: profile.tenants.name,
+          domain: profile.tenants.domain,
+          subscription_plan: profile.tenants.subscription_plan
         } : null,
         tenant_roles: tenantRoles?.map(tr => ({
           tenant_id: tr.tenants?.id,
@@ -190,12 +121,9 @@ Deno.serve(async (req) => {
           joined_at: tr.joined_at
         })) || [],
         session: {
-          issued_at: authToken.created_at,
-          expires_at: authToken.expires_at,
-          device_name: authToken.device_name,
-          last_used_at: authToken.last_used_at
-        },
-        jwt_claims: jwtPayload || null
+          issued_at: user.created_at,
+          expires_at: user.last_sign_in_at
+        }
       }),
       { 
         status: 200, 

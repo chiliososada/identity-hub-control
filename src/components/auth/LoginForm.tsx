@@ -11,11 +11,10 @@ import { Loader2 } from 'lucide-react';
 export const LoginForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [deviceName, setDeviceName] = useState('Web Browser');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { login } = useAuth();
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +22,7 @@ export const LoginForm = () => {
     setIsSubmitting(true);
 
     try {
-      const result = await login(email, password, deviceName);
+      const result = await signIn(email, password);
       
       if (!result.success) {
         setError(result.error || '登录失败');
@@ -73,18 +72,6 @@ export const LoginForm = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="请输入密码"
               required
-              disabled={isSubmitting}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="deviceName">设备名称</Label>
-            <Input
-              id="deviceName"
-              type="text"
-              value={deviceName}
-              onChange={(e) => setDeviceName(e.target.value)}
-              placeholder="设备名称（可选）"
               disabled={isSubmitting}
             />
           </div>
