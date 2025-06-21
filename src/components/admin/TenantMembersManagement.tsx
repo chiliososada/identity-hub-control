@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -81,23 +82,43 @@ const TenantMembersManagement = () => {
   const createMutation = useMutation({
     mutationFn: async (memberData: TablesInsert<'tenant_members'>) => {
       console.log('Creating tenant member:', memberData);
-      const { data, error } = await supabase
+      
+      // 开始事务操作
+      const { data: memberResult, error: memberError } = await supabase
         .from('tenant_members')
         .insert(memberData)
         .select()
         .single();
       
-      if (error) {
-        console.error('Error creating tenant member:', error);
-        throw error;
+      if (memberError) {
+        console.error('Error creating tenant member:', memberError);
+        throw memberError;
       }
-      console.log('Created tenant member:', data);
-      return data;
+
+      // 同时更新 profiles 表的 tenant_id
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ tenant_id: memberData.tenant_id })
+        .eq('id', memberData.user_id);
+
+      if (profileError) {
+        console.error('Error updating profile tenant_id:', profileError);
+        // 如果更新 profile 失败，删除刚创建的 tenant_member 记录
+        await supabase
+          .from('tenant_members')
+          .delete()
+          .eq('id', memberResult.id);
+        throw new Error('更新用户租户信息失败');
+      }
+
+      console.log('Created tenant member and updated profile:', memberResult);
+      return memberResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant_members'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setIsCreateOpen(false);
-      toast({ title: "租户成员添加成功" });
+      toast({ title: "租户成员添加成功，用户租户信息已同步更新" });
     },
     onError: (error: any) => {
       console.error('Create mutation error:', error);
@@ -108,24 +129,40 @@ const TenantMembersManagement = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...memberData }: Partial<TenantMember> & { id: string }) => {
       console.log('Updating tenant member:', { id, memberData });
-      const { data, error } = await supabase
+      
+      const { data: updatedMember, error: memberError } = await supabase
         .from('tenant_members')
         .update(memberData)
         .eq('id', id)
         .select()
         .single();
       
-      if (error) {
-        console.error('Error updating tenant member:', error);
-        throw error;
+      if (memberError) {
+        console.error('Error updating tenant member:', memberError);
+        throw memberError;
       }
-      console.log('Updated tenant member:', data);
-      return data;
+
+      // 如果更新了 tenant_id，同时更新 profiles 表
+      if (memberData.tenant_id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ tenant_id: memberData.tenant_id })
+          .eq('id', updatedMember.user_id);
+
+        if (profileError) {
+          console.error('Error updating profile tenant_id:', profileError);
+          throw new Error('更新用户租户信息失败');
+        }
+      }
+
+      console.log('Updated tenant member and profile:', updatedMember);
+      return updatedMember;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant_members'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setEditingMember(null);
-      toast({ title: "租户成员更新成功" });
+      toast({ title: "租户成员更新成功，用户租户信息已同步更新" });
     },
     onError: (error: any) => {
       console.error('Update mutation error:', error);
@@ -136,20 +173,64 @@ const TenantMembersManagement = () => {
   const deleteMutation = useMutation({
     mutationFn: async (memberId: string) => {
       console.log('Deleting tenant member:', memberId);
-      const { error } = await supabase
+      
+      // 先获取要删除的成员信息
+      const { data: memberToDelete, error: fetchError } = await supabase
+        .from('tenant_members')
+        .select('user_id, tenant_id')
+        .eq('id', memberId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching member to delete:', fetchError);
+        throw fetchError;
+      }
+
+      // 删除租户成员记录
+      const { error: deleteError } = await supabase
         .from('tenant_members')
         .delete()
         .eq('id', memberId);
       
-      if (error) {
-        console.error('Error deleting tenant member:', error);
-        throw error;
+      if (deleteError) {
+        console.error('Error deleting tenant member:', deleteError);
+        throw deleteError;
       }
-      console.log('Deleted tenant member:', memberId);
+
+      // 检查用户是否还有其他租户关系
+      const { data: otherMemberships, error: checkError } = await supabase
+        .from('tenant_members')
+        .select('tenant_id')
+        .eq('user_id', memberToDelete.user_id)
+        .limit(1);
+
+      if (checkError) {
+        console.error('Error checking other memberships:', checkError);
+        throw checkError;
+      }
+
+      // 如果用户没有其他租户关系，清空 profiles.tenant_id
+      // 如果有其他关系，设置为第一个租户的 ID
+      const newTenantId = otherMemberships && otherMemberships.length > 0 
+        ? otherMemberships[0].tenant_id 
+        : null;
+
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({ tenant_id: newTenantId })
+        .eq('id', memberToDelete.user_id);
+
+      if (profileUpdateError) {
+        console.error('Error updating profile after deletion:', profileUpdateError);
+        throw new Error('删除后更新用户租户信息失败');
+      }
+
+      console.log('Deleted tenant member and updated profile:', memberId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant_members'] });
-      toast({ title: "租户成员删除成功" });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      toast({ title: "租户成员删除成功，用户租户信息已同步更新" });
     },
     onError: (error: any) => {
       console.error('Delete mutation error:', error);
