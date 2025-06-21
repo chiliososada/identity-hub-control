@@ -53,10 +53,19 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 获取用户档案信息
+    // 获取用户档案信息和租户信息
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select(`
+        *,
+        tenants!profiles_tenant_id_fkey (
+          id,
+          name,
+          domain,
+          subscription_plan,
+          is_active
+        )
+      `)
       .eq('auth_user_id', authData.user.id)
       .single()
 
@@ -75,6 +84,21 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    // 获取用户的租户角色信息
+    const { data: tenantRoles } = await supabase
+      .from('tenant_members')
+      .select(`
+        role,
+        is_active,
+        joined_at,
+        tenants!tenant_members_tenant_id_fkey (
+          id,
+          name
+        )
+      `)
+      .eq('user_id', profile.id)
+      .eq('is_active', true)
 
     // 更新最后登录时间
     await supabase
@@ -97,7 +121,7 @@ Deno.serve(async (req) => {
 
     console.log('Login successful for user:', profile.id)
 
-    // 返回兼容的响应格式
+    // 返回完整的用户和租户信息，类似于 auth-user
     return new Response(
       JSON.stringify({
         access_token: authData.session?.access_token,
@@ -108,7 +132,30 @@ Deno.serve(async (req) => {
           id: profile.id,
           email: profile.email,
           full_name: profile.full_name,
-          role: profile.role
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          avatar_url: profile.avatar_url,
+          company: profile.company,
+          job_title: profile.job_title,
+          role: profile.role,
+          permissions: profile.permissions,
+          last_login_at: profile.last_login_at
+        },
+        tenant: profile.tenants ? {
+          id: profile.tenants.id,
+          name: profile.tenants.name,
+          domain: profile.tenants.domain,
+          subscription_plan: profile.tenants.subscription_plan
+        } : null,
+        tenant_roles: tenantRoles?.map(tr => ({
+          tenant_id: tr.tenants?.id,
+          tenant_name: tr.tenants?.name,
+          role: tr.role,
+          joined_at: tr.joined_at
+        })) || [],
+        session: {
+          issued_at: authData.user.created_at,
+          expires_at: authData.user.last_sign_in_at
         }
       }),
       { 
