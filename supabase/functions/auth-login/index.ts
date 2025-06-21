@@ -53,19 +53,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 获取用户档案信息和租户信息
+    // 获取用户档案信息
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select(`
-        *,
-        tenants!profiles_tenant_id_fkey (
-          id,
-          name,
-          domain,
-          subscription_plan,
-          is_active
-        )
-      `)
+      .select('*')
       .eq('auth_user_id', authData.user.id)
       .single()
 
@@ -83,6 +74,20 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'User account is inactive' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    // 获取租户信息（如果用户有tenant_id）
+    let tenantInfo = null
+    if (profile.tenant_id) {
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('id, name, domain, subscription_plan, is_active')
+        .eq('id', profile.tenant_id)
+        .single()
+      
+      if (tenant && tenant.is_active) {
+        tenantInfo = tenant
+      }
     }
 
     // 获取用户的租户角色信息
@@ -141,12 +146,7 @@ Deno.serve(async (req) => {
           permissions: profile.permissions,
           last_login_at: profile.last_login_at
         },
-        tenant: profile.tenants ? {
-          id: profile.tenants.id,
-          name: profile.tenants.name,
-          domain: profile.tenants.domain,
-          subscription_plan: profile.tenants.subscription_plan
-        } : null,
+        tenant: tenantInfo,
         tenant_roles: tenantRoles?.map(tr => ({
           tenant_id: tr.tenants?.id,
           tenant_name: tr.tenants?.name,
