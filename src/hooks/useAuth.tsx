@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +25,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -151,6 +151,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // 修改密码功能
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      if (!session?.access_token) {
+        return { success: false, error: '用户未登录' };
+      }
+
+      const { data, error } = await supabase.functions.invoke('change-password', {
+        body: {
+          current_password: currentPassword,
+          new_password: newPassword
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) {
+        console.error('Change password error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (data?.error) {
+        return { success: false, error: data.error };
+      }
+
+      toast({
+        title: "密码修改成功",
+        description: "您的密码已成功更新"
+      });
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Change password error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // 设置认证状态监听器
   useEffect(() => {
     // 设置认证状态监听器
@@ -202,7 +240,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       signUp,
       signIn,
       signOut,
-      refreshProfile
+      refreshProfile,
+      changePassword
     }}>
       {children}
     </AuthContext.Provider>

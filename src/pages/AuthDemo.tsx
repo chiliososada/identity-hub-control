@@ -3,11 +3,12 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { UserProfile } from '@/components/auth/UserProfile';
+import { ChangePasswordForm } from '@/components/auth/ChangePasswordForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Shield, Settings } from 'lucide-react';
+import { Users, Shield, Settings, Key } from 'lucide-react';
 
 export default function AuthDemo() {
   const { user, profile, signOut } = useAuth();
@@ -39,7 +40,7 @@ export default function AuthDemo() {
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile">
               <Users className="mr-2 h-4 w-4" />
               用户信息
@@ -47,6 +48,10 @@ export default function AuthDemo() {
             <TabsTrigger value="security">
               <Shield className="mr-2 h-4 w-4" />
               安全操作
+            </TabsTrigger>
+            <TabsTrigger value="password">
+              <Key className="mr-2 h-4 w-4" />
+              修改密码
             </TabsTrigger>
             <TabsTrigger value="settings">
               <Settings className="mr-2 h-4 w-4" />
@@ -99,6 +104,12 @@ export default function AuthDemo() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="password" className="space-y-4">
+            <div className="flex justify-center">
+              <ChangePasswordForm />
+            </div>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">
