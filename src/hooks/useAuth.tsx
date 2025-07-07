@@ -26,6 +26,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  adminResetPassword: (userId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -189,6 +190,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // 管理员重置用户密码功能
+  const adminResetPassword = async (userId: string, newPassword: string) => {
+    try {
+      if (!session?.access_token) {
+        return { success: false, error: '管理员未登录' };
+      }
+
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: {
+          user_id: userId,
+          new_password: newPassword
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) {
+        console.error('Admin reset password error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (data?.error) {
+        return { success: false, error: data.error };
+      }
+
+      toast({
+        title: "密码重置成功",
+        description: "用户密码已成功重置"
+      });
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Admin reset password error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // 设置认证状态监听器
   useEffect(() => {
     // 设置认证状态监听器
@@ -241,7 +280,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       signIn,
       signOut,
       refreshProfile,
-      changePassword
+      changePassword,
+      adminResetPassword
     }}>
       {children}
     </AuthContext.Provider>

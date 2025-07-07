@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,12 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Users, MoreHorizontal, Building, Edit, Eye, UserX, UserCheck } from 'lucide-react';
+import { Users, MoreHorizontal, Building, Edit, Eye, UserX, UserCheck, Key } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { ResetPasswordDialog } from '@/components/admin/ResetPasswordDialog';
 
 type Profile = Tables<'profiles'>;
 type EnhancedProfile = Profile & {
@@ -33,6 +33,7 @@ interface UserTableProps {
 
 const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSize }: UserTableProps) => {
   const [selectedUser, setSelectedUser] = useState<EnhancedProfile | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<EnhancedProfile | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -86,6 +87,10 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
 
   const handleToggleStatus = (user: EnhancedProfile) => {
     toggleUserStatusMutation.mutate({ userId: user.id, isActive: user.is_active ?? false });
+  };
+
+  const handleResetPassword = (user: EnhancedProfile) => {
+    setResetPasswordUser(user);
   };
 
   return (
@@ -203,6 +208,11 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
                             <Eye className="h-4 w-4 mr-2" />
                             查看详情
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleResetPassword(user)}>
+                            <Key className="h-4 w-4 mr-2" />
+                            重置密码
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
                             {user.is_active ? (
                               <>
@@ -374,6 +384,17 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 重置密码对话框 */}
+      <ResetPasswordDialog
+        profile={resetPasswordUser!}
+        open={!!resetPasswordUser}
+        onOpenChange={(open) => !open && setResetPasswordUser(null)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['users_dashboard'] });
+          toast({ title: "密码重置成功", description: "用户密码已成功重置" });
+        }}
+      />
     </>
   );
 };

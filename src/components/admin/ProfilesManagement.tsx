@@ -1,21 +1,22 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Edit, Search } from 'lucide-react';
+import { Edit, Search, Key } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Tables } from '@/integrations/supabase/types';
 import { ProfileForm } from './forms/ProfileForm';
+import { ResetPasswordDialog } from './ResetPasswordDialog';
 
 type Profile = Tables<'profiles'>;
 
 const ProfilesManagement = () => {
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [resetPasswordProfile, setResetPasswordProfile] = useState<Profile | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -136,32 +137,49 @@ const ProfilesManagement = () => {
                         <p className="text-sm text-muted-foreground">{profile.email}</p>
                       </div>
                       
-                      <Dialog open={editingProfile?.id === profile.id} onOpenChange={(open) => {
-                        if (!open) setEditingProfile(null);
-                      }}>
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditingProfile(profile)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            编辑
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle>编辑用户档案</DialogTitle>
-                            <DialogDescription>修改用户的基本信息和权限设置</DialogDescription>
-                          </DialogHeader>
-                          <ProfileForm
-                            profile={editingProfile}
-                            onSubmit={(data) => updateMutation.mutate({ ...data, id: profile.id })}
-                            buttonText="更新用户"
-                            isLoading={updateMutation.isPending}
-                          />
-                        </DialogContent>
-                      </Dialog>
+                      <div className="flex gap-2">
+                        <Dialog open={editingProfile?.id === profile.id} onOpenChange={(open) => {
+                          if (!open) setEditingProfile(null);
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingProfile(profile)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              编辑
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>编辑用户档案</DialogTitle>
+                              <DialogDescription>修改用户的基本信息和权限设置</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <ProfileForm
+                                profile={editingProfile}
+                                onSubmit={(data) => updateMutation.mutate({ ...data, id: profile.id })}
+                                buttonText="更新用户"
+                                isLoading={updateMutation.isPending}
+                              />
+                              <div className="border-t pt-4">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setResetPasswordProfile(profile);
+                                    setEditingProfile(null);
+                                  }}
+                                  className="w-full"
+                                >
+                                  <Key className="h-4 w-4 mr-2" />
+                                  重置用户密码
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                     </div>
                     
                     <div className="flex flex-wrap gap-2 mb-3">
@@ -200,6 +218,15 @@ const ProfilesManagement = () => {
           ))
         )}
       </div>
+
+      <ResetPasswordDialog
+        profile={resetPasswordProfile!}
+        open={!!resetPasswordProfile}
+        onOpenChange={(open) => !open && setResetPasswordProfile(null)}
+        onSuccess={() => {
+          toast({ title: "密码重置成功", description: "用户密码已成功重置" });
+        }}
+      />
     </div>
   );
 };
