@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -387,7 +388,7 @@ const UserTable = ({ users = [], totalCount, currentPage, setCurrentPage, pageSi
 
       {/* 重置密码对话框 */}
       <ResetPasswordDialog
-        profile={resetPasswordUser!}
+        profile={resetPasswordUser}
         open={!!resetPasswordUser}
         onOpenChange={(open) => !open && setResetPasswordUser(null)}
         onSuccess={() => {

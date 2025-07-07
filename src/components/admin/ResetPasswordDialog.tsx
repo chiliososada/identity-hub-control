@@ -12,7 +12,7 @@ import { Tables } from '@/integrations/supabase/types';
 type Profile = Tables<'profiles'>;
 
 interface ResetPasswordDialogProps {
-  profile: Profile;
+  profile: Profile | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
@@ -26,6 +26,11 @@ export const ResetPasswordDialog = ({ profile, open, onOpenChange, onSuccess }: 
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 如果 profile 为空，不渲染对话框
+  if (!profile) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,10 +51,15 @@ export const ResetPasswordDialog = ({ profile, open, onOpenChange, onSuccess }: 
       return;
     }
 
+    if (!profile.auth_user_id) {
+      setError('用户ID不存在');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const result = await adminResetPassword(profile.auth_user_id!, newPassword);
+      const result = await adminResetPassword(profile.auth_user_id, newPassword);
       
       if (result.success) {
         setNewPassword('');
@@ -82,7 +92,7 @@ export const ResetPasswordDialog = ({ profile, open, onOpenChange, onSuccess }: 
             重置用户密码
           </DialogTitle>
           <DialogDescription>
-            为用户 <strong>{profile.full_name || profile.email}</strong> 设置新密码
+            为用户 <strong>{profile.full_name || profile.email || '未知用户'}</strong> 设置新密码
           </DialogDescription>
         </DialogHeader>
         
