@@ -62,7 +62,15 @@ export const ProfileForm = ({ profile, onSubmit, buttonText, isLoading }: Profil
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit(formData);
+      // 创建提交数据的副本
+      const submitData = { ...formData };
+      
+      // 如果是编辑现有用户，移除密码字段（因为profiles表中没有password列）
+      if (profile) {
+        delete submitData.password;
+      }
+      
+      onSubmit(submitData);
     }
   };
 
