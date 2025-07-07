@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { LoginForm } from '@/components/auth/LoginForm';
@@ -8,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Shield, Settings, Key } from 'lucide-react';
+import { Users, Shield, Settings, Key, Building } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function AuthDemo() {
   const { user, profile, signOut } = useAuth();
@@ -37,6 +37,27 @@ export default function AuthDemo() {
           <p className="text-xl text-muted-foreground">
             欢迎使用简化的身份验证系统
           </p>
+        </div>
+
+        <div className="flex justify-center">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                多租户认证管理平台
+              </CardTitle>
+              <CardDescription>
+                访问完整的多租户认证管理功能
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link to="/admin">
+                <Button className="w-full">
+                  进入多租户认证管理平台
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
