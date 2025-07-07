@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, Users, Building, Key } from "lucide-react";
+import { Settings, Users, Building, Key, Shield } from "lucide-react";
 
 const Index = () => {
   return (
@@ -17,17 +17,17 @@ const Index = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                管理面板
+                <Shield className="h-5 w-5" />
+                多租户认证管理平台
               </CardTitle>
               <CardDescription>
-                访问完整的管理功能，包括用户管理、租户管理和OAuth配置
+                访问完整的多租户认证管理功能，包括用户管理、租户管理和权限配置
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Link to="/admin">
                 <Button className="w-full">
-                  进入管理面板
+                  进入多租户认证管理平台
                 </Button>
               </Link>
             </CardContent>
